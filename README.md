@@ -80,24 +80,19 @@ Disconnect the adapter from the USB power source.
 
 #### LED Indicator
 
-The dotstar tri-color LED is used to indicate various states:
-
+**Adapter's Status**
 - 🟠: Idle, adapter waiting to pair
-- 🔵 (slow flash): Adapter scanning for radio
-- 🔵 (breathing): Idle, paired with radio
+- 🔵: (slow flash): Adapter scanning for radio
+- 🔵: (breathing): Idle, paired with radio
 - 🔵: Ready, radio and iOS device paired
-- 🟠 (fast blink): Shutting down
+- 🟠: (fast blink): Shutting down
+- 🔴: (slow flash): **Fatal error**, must reset
 
-Data Activity:
+**Data Activity**
 
 - 🟢: Rx (Receiving)
 - 🔴: Tx (Transmitting)
 - 🟣: Rx/Tx (Both Receiving and Transmitting)
-
-Error Conditions:
-
-- 🔴 (fast blink): Low battery immediate shutdown
-- 🔴 (slow flash): Fatal error, must reset
 
 ### Factory Reset
 
