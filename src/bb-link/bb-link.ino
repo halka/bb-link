@@ -1,6 +1,8 @@
 /*
   (c) 2024 Island Magic Co. All Rights Reserved.
 
+  M5 ATOM LITE port (M5Unified). External power assumed.
+
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
@@ -12,61 +14,50 @@
   GNU General Public License for more details.
 */
 
+#include <M5Unified.h>
 #include <ArduinoLog.h>
+
 const char* logLevels[] = { "OFF", "FATAL", "ERROR", "WARNING", "INFO", "TRACE", "VERBOSE" };
 
 #include "Adapter.h"
 Adapter* adapter = nullptr;
 
-// for Atom
-//#include <Adafruit_NeoPixel.h>
-
-//#define PIN       27  //定义NeoPixel的控制引脚
-//#define NUMPIXELS 1   //定义NeoPixel控制灯灯数量
-
-//Adafruit_NeoPixel pixels = Adafruit_NeoPixel(
-//    NUMPIXELS, PIN,
-//    NEO_GRB + NEO_KHZ800);  // set number of LEDs, pin number, LED type.
-// 设置灯的数量,控制引脚编号,灯灯类型
-
-
 void setup() {
-  // Slow down to save power
-  setCpuFrequencyMhz(80);  // 240, 160, 80
+  auto cfg = M5.config();
+  M5.begin(cfg);
+
+  // Slow down to save power. ESP32 BT Classic + BLE coexistence works at 80 MHz.
+  setCpuFrequencyMhz(80);
 
   Serial.begin(115200);
   delay(1000);
 
-  // LOG_LEVEL_FATAL, LOG_LEVEL_ERROR, LOG_LEVEL_WARNING, LOG_LEVEL_INFO, LOG_LEVEL_TRACE, LOG_LEVEL_VERBOSE
   Log.begin(LOG_LEVEL_INFO, &Serial);
   Log.setPrefix(logPrintPrefix);
 
   adapter = new Adapter();
-
 
   Serial.println("\n ___   ___     _    _      _");
   Serial.println("| _ ) | _ )   | |  (_)_ _ | |__");
   Serial.println("| _ \\_| _ \\_  | |__| | ' \\| / /");
   Serial.println("|___(_)___(_) |____|_|_||_|_\\_\\\n");
 
-  Serial.printf("Booting up %s v%d.%d.%d on %s v%d.%d\n\n", adapter->getAdapterName().c_str(), FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR, FIRMWARE_VERSION_PATCH,
+  Serial.printf("Booting up %s v%d.%d.%d on %s v%d.%d\n\n",
+                adapter->getAdapterName().c_str(),
+                FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR, FIRMWARE_VERSION_PATCH,
                 getHardwareName(),
                 HARDWARE_VERSION_MAJOR, HARDWARE_VERSION_MINOR);
 
   Serial.printf("Heap free: %d, usage: %d %%\n", ESP.getFreeHeap(), 100 - (ESP.getFreeHeap() * 100) / ESP.getHeapSize());
-  // ESP.getFreeSketchSpace() returns the total sketch space
   Serial.printf("Flash size: %d, total: %d, usage: %d %%\n", ESP.getSketchSize(), ESP.getFreeSketchSpace(), (ESP.getSketchSize() * 100) / ESP.getFreeSketchSpace());
   Serial.printf("CPU clock: %d Mhz\n", getCpuFrequencyMhz());
   Serial.printf("Log level: %s\n", logLevels[Log.getLevel()]);
 
   adapter->init();
-
-  //M5.dis.drawpix(0, 0x00aa00);
-  //Serial.println("drawpix");
-  //delay(1000);
 }
 
 void loop() {
+  M5.update();
   adapter->perform();
 }
 
@@ -78,19 +69,18 @@ void logPrintPrefix(Print* _logOutput, int logLevel) {
 void logPrintSetColor(Print* _logOutput, int logLevel) {
   switch (logLevel) {
     case LOG_LEVEL_FATAL:
-      _logOutput->print("\033[31m");  // red
-      break;
     case LOG_LEVEL_ERROR:
-      _logOutput->print("\033[31m");  // red
+      _logOutput->print("\033[31m");
       break;
     case LOG_LEVEL_WARNING:
-      _logOutput->print("\033[33m");  // yellow
+      _logOutput->print("\033[33m");
       break;
     case LOG_LEVEL_INFO:
-      _logOutput->print("\033[0m");  // default
+      _logOutput->print("\033[0m");
       break;
     case LOG_LEVEL_TRACE:
-      _logOutput->print("\033[36m");  // cyan
+      _logOutput->print("\033[36m");
+      break;
   }
 }
 
@@ -107,7 +97,7 @@ void logPrintTimestamp(Print* _logOutput) {
   const unsigned long hours = (secs % SECS_PER_DAY) / SECS_PER_HOUR;
 
   char timestamp[20];
-  sprintf(timestamp, "%02d:%02d:%02d.%03d ", hours, minutes, seconds, milliseconds);
+  sprintf(timestamp, "%02lu:%02lu:%02lu.%03lu ", hours, minutes, seconds, milliseconds);
 
   _logOutput->print(timestamp);
 }

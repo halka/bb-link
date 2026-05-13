@@ -2,8 +2,10 @@
 #ifndef M5BUTTON_H
 #define M5BUTTON_H
 
+#include <M5Unified.h>
 #include "ButtonBase.h"
-#include <M5Atom.h>  // Provides M5.Btn
+
+#define LONG_PRESS_MS 2000
 
 class M5Button : public ButtonBase
 {
@@ -12,26 +14,35 @@ public:
 
     void init() override
     {
-        // M5.begin() already initializes Btn — nothing more needed
+        // M5.begin() in setup() already initializes BtnA on the Atom Lite.
+        longPressFired = false;
     }
 
     void process() override
     {
-        // M5.update() MUST be called in Adapter::perform() before this
+        // M5.update() must have been called in the main loop before this.
 
-        // Long press: held for 2+ seconds
-        if (M5.Btn.pressedFor(2000))
+        if (M5.BtnA.isPressed())
         {
-            if (onLongPressed)
+            if (!longPressFired && M5.BtnA.pressedFor(LONG_PRESS_MS))
             {
-                onLongPressed();
+                longPressFired = true;
+                if (onLongPressed)
+                {
+                    onLongPressed();
+                }
             }
-            return;  // Consume the event (don't trigger short press)
+            return;
         }
 
-        // Short press: quick release after press
-        if (M5.Btn.wasReleased())
+        if (M5.BtnA.wasReleased())
         {
+            if (longPressFired)
+            {
+                // Long press already consumed the event.
+                longPressFired = false;
+                return;
+            }
             if (onShortPressed)
             {
                 onShortPressed();
@@ -52,6 +63,7 @@ public:
 private:
     std::function<void(void)> onShortPressed = nullptr;
     std::function<void(void)> onLongPressed = nullptr;
+    bool longPressFired = false;
 };
 
 #endif // M5BUTTON_H

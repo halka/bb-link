@@ -22,12 +22,12 @@ const char PREF_RIG_CTRL[] = "rigCtrl";
 extern char _remote_name[ESP_BT_GAP_MAX_BDNAME_LEN + 1];
 extern bool _isRemoteAddressSet;
 
-extern Adapter adapter;
+extern Adapter *adapter;
 
 void connectToBluetooth(void *address)
 {
   Log.traceln("BTC: connecting to Bluetooth Classic interface");
-  adapter.bridge.btSerial.connect((uint8_t *)address, 0, ESP_SPP_SEC_NONE, ESP_SPP_ROLE_MASTER);
+  adapter->bridge.btSerial.connect((uint8_t *)address, 0, ESP_SPP_SEC_NONE, ESP_SPP_ROLE_MASTER);
   vTaskDelete(NULL);
 }
 
@@ -175,7 +175,7 @@ bool Bridge::initBTC()
 {
   Log.traceln("Bridge: initBTC");
   btSerial.enableSSP();
-  btSerial.setPin("0000");
+  btSerial.setPin("0000", 4);
 
   btSerial.onConfirmRequest([this](uint32_t num)
                             { this->onBTConfirmRequestCallback(num); });
@@ -712,7 +712,7 @@ void Bridge::onMtuChanged(BLEServer *pServer, esp_ble_gatts_cb_param_t *param)
 */
 void Bridge::onWrite(BLECharacteristic *pCharacteristic)
 {
-  std::string txValue = pCharacteristic->getValue();
+  String txValue = pCharacteristic->getValue();
 
   if (txValue.length() > 0)
   {

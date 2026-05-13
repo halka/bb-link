@@ -1,15 +1,9 @@
 #include <ArduinoLog.h>
+#include <esp_sleep.h>
 #include "Adapter.h"
 
-#define IDLE_TIME_TO_SLEEP 5 * 60 * 1000           // 5 min, time before shutting down when neither devices are connected
-#define ACTION_FEEDBACK_DURATION 2000              // Duration for action feedback
-#define LINGER_TIME_BEFORE_SHUTDOWN 2000           // Grace time for user to untouch button before sleeping, since touch would wake up device again
-#define BATTERY_FULL_VOLTAGE 3.750                 // Voltage above which to consider LiPo battery charged
-#define BATTERY_MIN_VOLTAGE 3.500                  // Voltage below which esp32 should go to sleep as battery is going to rapidely drop its charge
-#define SHOW_BATTERY_DURATION 3000                 // Duration for battery indicator to stay on
-#define BATTERY_WATCHGUARD_INTERVAL 3 * 60 * 1000  // Interval between battery check
-
-#define VBUS_SENSE_GPIO 9
+#define ACTION_FEEDBACK_DURATION 2000    // Duration for action feedback (long-press registered)
+#define LINGER_TIME_BEFORE_SHUTDOWN 2000 // Grace time so user can release button before sleep
 
 #define SERVICE_UUID_OTA "1A68D2B0-C2E4-453F-A2BB-B659D66CF442"
 #define CHARACTERISTIC_UUID_OTA_FLASH "1A68D2B1-C2E4-453F-A2BB-B659D66CF442"
@@ -17,58 +11,23 @@
 
 extern const char *logLevels[];
 
-// AdapterState
 Adapter::Adapter()
   : idleState(
-    [this] {
-      this->idleEnter();
-    },
-    [this] {
-      this->idleUpdate();
-    },
-    [this] {
-      this->idleExit();
-    }),
+      [this] { this->idleEnter(); },
+      [this] { this->idleUpdate(); },
+      [this] { this->idleExit(); }),
     inUseState(
-      [this] {
-        this->inUseEnter();
-      },
-      [this] {
-        this->inUseUpdate();
-      },
-      [this] {
-        this->inUseExit();
-      }),
+      [this] { this->inUseEnter(); },
+      [this] { this->inUseUpdate(); },
+      [this] { this->inUseExit(); }),
     shutdownState(
-      [this] {
-        this->shutdownEnter();
-      },
-      [this] {
-        this->shutdownUpdate();
-      },
-      [this] {
-        this->shutdownExit();
-      }),
-    showBatteryState(
-      [this] {
-        this->showBatteryEnter();
-      },
-      [this] {
-        this->showBatteryUpdate();
-      },
-      [this] {
-        this->showBatteryExit();
-      }),
+      [this] { this->shutdownEnter(); },
+      [this] { this->shutdownUpdate(); },
+      [this] { this->shutdownExit(); }),
     otaFlashState(
-      [this] {
-        this->otaFlashEnter();
-      },
-      [this] {
-        this->otaFlashUpdate();
-      },
-      [this] {
-        this->otaFlashExit();
-      }),
+      [this] { this->otaFlashEnter(); },
+      [this] { this->otaFlashUpdate(); },
+      [this] { this->otaFlashExit(); }),
     adapterStateMachine(idleState),
     bridge(fetchAdapterName()) {
 }
@@ -83,47 +42,23 @@ String Adapter::fetchAdapterName() {
   }
   return name;
 }
+
 const char *getHardwareName() {
-  switch (HARDWARE_BOARD) {
-    case hardware_board_tinypico: return "TinyPICO";
-    case hardware_board_pico32: return "Pico32";
-    case hardware_board_m5atom: return "M5Atom";
-    default: return "Unknown";
-  }
-};
+  return "M5AtomLite";
+}
 
 String Adapter::getAdapterName() {
   return bridge.getAdapterName();
 }
 
 void Adapter::init() {
-#if defined(ARDUINO_M5Stack_ATOM)
-  // === M5Atom Hardware Initialization ===
-  // Serial enabled, I2C disabled (saves power), LED enabled
-  M5.begin(true, false, true);
-  // Optional: set LED brightness
-  M5.dis.setBrightness(20);
-  M5.dis.drawpix(0, 0x00aa00);
-
-  Log.infoln("M5Atom hardware initialized, show green led for 1 second.");
-  delay(1000);
-#endif
   Log.traceln("Adapter: init");
-  pinMode(VBUS_SENSE_GPIO, INPUT);
 
   statusIndicator.init();
   button.init();
 
-  button.setOnLongPressed([this]() {
-    onLongPressed();
-  });
-  button.setOnShortPressed([this]() {
-    onShortPressed();
-  });
-
-#if defined(ARDUINO_TINYPICO)
-  touchSleepWakeUpEnable(CAPACITIVE_TOUCH_INPUT_PIN, TOUCH_THRESHOLD);
-#endif
+  button.setOnLongPressed([this]() { onLongPressed(); });
+  button.setOnShortPressed([this]() { onShortPressed(); });
 
   if (!bridge.init()) {
     Log.fatalln("FATAL: Bridge init failed !!!!!");
@@ -134,9 +69,7 @@ void Adapter::init() {
     }
   }
 
-  // Make sure bridge is initialized first
   initBLEOtaService();
-
   verifyFirmware();
 }
 
@@ -168,7 +101,6 @@ void Adapter::verifyFirmware() {
 void Adapter::initBLEOtaService() {
   Log.traceln("Adapter: init BLE OTA service");
 
-  // Create the BLE Service for OTA
   BLEService *pOtaService = bridge.getBLEServer()->createService(SERVICE_UUID_OTA);
 
   pOtaFlash = pOtaService->createCharacteristic(
@@ -193,21 +125,15 @@ void Adapter::initBLEOtaService() {
 }
 
 void Adapter::perform() {
-#if defined(ARDUINO_M5Stack_ATOM)
-  M5.update();  // ← Required for M5.Btn to work!
-#endif
-
   statusIndicator.render();
   if (!adapterStateMachine.isInState(otaFlashState)) {
     button.process();
-    lowBatteryWatchguard();
   }
   adapterStateMachine.update();
 }
 
 void Adapter::updateSendReceiveStatus() {
   if (bridge.isTx() && bridge.isRx()) {
-    // The adapter is full duplex and can receive and send at same time.
     statusIndicator.set(duplex);
   } else if (bridge.isRx()) {
     statusIndicator.set(rx);
@@ -218,41 +144,16 @@ void Adapter::updateSendReceiveStatus() {
   }
 }
 
-void Adapter::lowBatteryWatchguard() {
-#if defined(ARDUINO_TINYPICO)
-  unsigned long now = millis();
-  if (now - lastBatteryCheck > BATTERY_WATCHGUARD_INTERVAL) {
-    lastBatteryCheck = now;
-    float level = tp.GetBatteryVoltage();
-    Log.infoln("Battery voltage %F V", level);
-    if (level < BATTERY_MIN_VOLTAGE) {
-      Log.warningln("Voltage too low, initiating shutdown");
-      shutdownReason = lowBattery;
-      adapterStateMachine.transitionTo(shutdownState);
-    }
-  }
-#endif
-}
-
-bool Adapter::isUSBPower() {
-#if defined(ARDUINO_TINYPICO)
-  // TinyPICO has a resistor divider on USB power line
-  return (digitalRead(VBUS_SENSE_GPIO) != 0);
-#else
-  return true;
-#endif
-}
-
 void Adapter::doShutdown() {
   Log.infoln("Going to deep sleep...");
   bridge.disconnect();
   statusIndicator.sleep();
+
+  // Wake by pressing the Atom Lite button (GPIO39 pulled LOW when pressed).
+  esp_sleep_enable_ext0_wakeup(ATOM_LITE_BTN_GPIO, 0);
   esp_deep_sleep_start();
 }
 
-/*
-  Touch button Callbacks
-*/
 void Adapter::onLongPressed() {
   Log.infoln("Long pressed button, shutdown");
   shutdownReason = userInitiated;
@@ -267,19 +168,12 @@ void Adapter::onLongPressed() {
 
 void Adapter::onShortPressed() {
   Log.infoln("Short pressed button");
-  // Only show status when idle
-  if (adapterStateMachine.isInState(idleState)) {
-    Log.infoln("Showing battery status");
-    adapterStateMachine.transitionTo(showBatteryState);
-  }
+  // External power: nothing meaningful to do while awake.
+  // Wake-from-deep-sleep is handled by the ext0 wakeup pin.
 }
 
-/*
-  BLECharacteristicCallbacks
-*/
 void Adapter::onWrite(BLECharacteristic *pCharacteristic) {
-  std::string rxData = pCharacteristic->getValue();
-  //String rxData = pCharacteristic->getValue();
+  String rxData = pCharacteristic->getValue();
 
   if (!adapterStateMachine.isInState(otaFlashState)) {
     Log.infoln("OTA: begin flash");
@@ -308,16 +202,12 @@ void Adapter::onRead(BLECharacteristic *pCharacteristic) {
   Log.errorln("OTA: onRead!!!!");
 }
 
-/*
-  Adapter state machine
-*/
 void Adapter::idleEnter() {
   Log.traceln("Adapter: idle");
   statusIndicator.set(disconnected);
 }
 
 void Adapter::idleUpdate() {
-
   bridge.perform();
 
   if (bridge.isReady()) {
@@ -330,57 +220,35 @@ void Adapter::idleUpdate() {
     statusIndicator.set(disconnected);
   }
 
-  unsigned int idleTime = adapterStateMachine.timeInCurrentState();
-  if (idleTime > IDLE_TIME_TO_SLEEP) {
-    Log.infoln("Idle for %i s", idleTime / 1000);
-
-    // Do not auto shutdown when on USB power
-    if (isUSBPower()) {
-      Log.infoln("On USB power, stay awake");
-      // Reset the time in state
-      adapterStateMachine.transitionTo(idleState);
-    } else {
-      Log.infoln("On battery power, initiating shutdown");
-      shutdownReason = idleTimeout;
-      adapterStateMachine.transitionTo(shutdownState);
-    }
-  }
-
   if (Serial.available()) {
     char ch = Serial.read();
     switch (ch) {
       case 'r':
-        // Reboot device
         Serial.println("Rebooting...");
         delay(2000);
         esp_restart();
         break;
       case 'R':
-        // Factory reset, clear paired radio
         Serial.println("Perform factory reset");
         bridge.factoryReset();
         adapterStateMachine.transitionTo(idleState);
         break;
       case 'v':
-        // Decrease log verbosity by one level
         if (Log.getLevel() > LOG_LEVEL_SILENT) {
           Log.setLevel(Log.getLevel() - 1);
         }
         Serial.printf("Log level: %s\n", logLevels[Log.getLevel()]);
         break;
       case 'V':
-        // Increase log verbosity by one level
         if (Log.getLevel() < LOG_LEVEL_VERBOSE) {
           Log.setLevel(Log.getLevel() + 1);
         }
         Serial.printf("Log level: %s\n", logLevels[Log.getLevel()]);
         break;
       case 'i':
-        // Print identity
         Serial.printf("Identity: %s\n", getAdapterName().c_str());
         break;
       case 'I':
-        // Set new identity
         char buffer[32];
         Preferences preferences;
         Serial.setTimeout(5000);
@@ -443,16 +311,7 @@ void Adapter::inUseExit() {
 
 void Adapter::shutdownEnter() {
   Log.traceln("Adapter: shutdown");
-  switch (shutdownReason) {
-    case userInitiated:
-    case idleTimeout:
-      statusIndicator.set(shutdown);
-      break;
-
-    case lowBattery:
-      statusIndicator.set(batteryShutdown);
-      break;
-  }
+  statusIndicator.set(shutdown);
 }
 
 void Adapter::shutdownUpdate() {
@@ -464,27 +323,6 @@ void Adapter::shutdownUpdate() {
 void Adapter::shutdownExit() {
 }
 
-void Adapter::showBatteryEnter() {
-#if defined(ARDUINO_TINYPICO)
-  float level = tp.GetBatteryVoltage();
-  Log.infoln("Battery voltage %F V", level);
-  if (level > BATTERY_FULL_VOLTAGE) {
-    statusIndicator.set(batteryFull);
-  } else {
-    statusIndicator.set(batteryLow);
-  }
-#endif
-}
-
-void Adapter::showBatteryUpdate() {
-  if (adapterStateMachine.timeInCurrentState() >= SHOW_BATTERY_DURATION) {
-    adapterStateMachine.transitionTo(idleState);
-  }
-}
-
-void Adapter::showBatteryExit() {
-}
-
 void Adapter::otaFlashEnter() {
   Log.traceln("Adapter: OTA flash");
   statusIndicator.set(otaFlash);
@@ -492,9 +330,8 @@ void Adapter::otaFlashEnter() {
 }
 
 void Adapter::otaFlashUpdate() {
-  // Do nothing, OTA is handled by BLECharacteristicCallbacks
+  // Handled by BLECharacteristicCallbacks
 }
 
 void Adapter::otaFlashExit() {
-  // If OTA flash was successful, the device will reboot
 }
