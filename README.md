@@ -86,11 +86,11 @@ By default, the adapter sets the radio to KISS mode and automatically responds t
 #### Adapter Status
 | Color | Status |
 |-------|--------|
-| 🟠 | Idle, adapter waiting to pair |
+| 🟡 | Idle, adapter waiting to pair |
 | 🔵 (slow flash) | Adapter scanning for radio |
 | 🔵 (breathing) | Idle, paired with radio |
 | 🔵 | Ready, radio and iOS device paired |
-| 🟠 (fast blink) | Shutting down |
+| 🟡 (fast blink) | Shutting down |
 | 🔴 (slow flash) | **Fatal error**, must reset |
 
 #### Data Activity
