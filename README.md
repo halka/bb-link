@@ -1,13 +1,15 @@
 # B.B. Link, the BLE to Bluetooth Classic adapter for Kenwood TH-D74/5 Radios on M5Stack ATOM-Lite
-<img src="https://shop.m5stack.com/cdn/shop/products/3_2e4a5d8d-c739-405a-9494-431e2edec8ae_1200x1200.jpg?v=1655692121" width="80%">
 
+## Objective
 Some devices, like the Kenwood TH-D75 radio only support Bluetooth Classic serial profile. iOS devices only support Bluetooth Low Energy (BLE). They are not compatible and as such, you can't pair those devices together. This code provides a way to create an adapter that can interface a device that exposes a serial profile over Bluetooth Classic, to an iOS device via BLE. Its main purpose is to enable iOS app that supports AX.25 packet like RadioMail or APRS.fi to use the TNC built in the radio as a modem.
 
 For a detailed "how-to build" this adapter, watch this video: 
 
 [![Watch the video](https://image.mux.com/SZQsZnBJDJf4GMUrTRxJ386tSpsIlRP02yfmXZr79TKg/thumbnail.png?time=1200)](https://player.mux.com/SZQsZnBJDJf4GMUrTRxJ386tSpsIlRP02yfmXZr79TKg)
 
-After you're done, come back and follow the instructions here as they are continually updated.
+## Works on ATOM-Lite
+[![ATOM LITE](https://raw.githubusercontent.com/halka/bb-link/refs/heads/master/assets/atomlite.webp)](https://docs.m5stack.com/en/core/ATOM%20Lite)
+
 
 ## Hardware
 
