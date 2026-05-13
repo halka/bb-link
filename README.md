@@ -72,6 +72,12 @@ Disconnect the adapter from the USB power source.
 1. A solid blue LED on the adapter signals that RadioMail has connected. Red and green LEDs will flash to indicate data transmission and reception.
 
 ### User Interface
+#### Button (Main Button)
+- Long press: Power on/off
+- Short press: Reconnect to radio and/or iOS device. 
+#### Button (Side Button)
+- Long press: Reboot the adapter
+
 #### LED Indicator
 
 The dotstar tri-color LED is used to indicate various states:
