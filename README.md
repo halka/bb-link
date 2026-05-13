@@ -1,126 +1,129 @@
-# B.B. Link, the BLE to Bluetooth Classic adapter for Kenwood TH-D74/5 Radios on M5Stack ATOM-Lite
+# B.B. Link, the BLE to Bluetooth Classic Adapter for Kenwood TH-D74/5 Radios on M5Stack ATOM-Lite
 
 ## Objective
-Some devices, like the Kenwood TH-D75 radio only support Bluetooth Classic serial profile. iOS devices only support Bluetooth Low Energy (BLE). They are not compatible and as such, you can't pair those devices together. This code provides a way to create an adapter that can interface a device that exposes a serial profile over Bluetooth Classic, to an iOS device via BLE. Its main purpose is to enable iOS app that supports AX.25 packet like RadioMail or APRS.fi to use the TNC built in the radio as a modem.
+This code provides a way to create an adapter that interfaces a device exposing a serial profile over Bluetooth Classic with an iOS device via BLE, such as the Kenwood TH-D74/5 radios that only support Bluetooth Classic serial profiles.
 
-For a detailed "how-to build" this adapter, watch this video: 
+To enable iOS apps that support AX.25 packets, like RadioMail or APRS.fi, to use the built-in TNC in the radio as a modem, note that iOS devices only support Bluetooth Low Energy (BLE). These protocols are incompatible, so you can't pair those devices directly.
+
+**For a detailed "how-to build" this adapter, watch this video:**
 
 [![Watch the video](https://image.mux.com/SZQsZnBJDJf4GMUrTRxJ386tSpsIlRP02yfmXZr79TKg/thumbnail.png?time=1200)](https://player.mux.com/SZQsZnBJDJf4GMUrTRxJ386tSpsIlRP02yfmXZr79TKg)
 
-## Works on ATOM-Lite
-[![ATOM LITE](https://raw.githubusercontent.com/halka/bb-link/refs/heads/master/assets/atomlite.webp)](https://docs.m5stack.com/en/core/ATOM%20Lite)
+## For ATOM-Lite
+This repository is optimized for ATOM-Lite.
 
+[![ATOM LITE](https://raw.githubusercontent.com/halka/bb-link/refs/heads/master/assets/atomlite.webp)](https://docs.m5stack.com/en/core/ATOM%20Lite)
 
 ## Hardware
 
 The adapter is based on the ESP32 microcontroller, which provides support for both Bluetooth Classic and Bluetooth Low Energy (BLE).
 
-### Material
+### Materials
 
 1. M5Stack ATOM-Lite [Buy](https://shop.m5stack.com/products/m5atom-lite-v2-0)
-2. External USB power pack
+2. External USB power bank
 3. USB-C cable
 
 ### Power
 
-The adapter can be powered by a USB power source, such as a USB adapter or a portable power bank. It can also be powered by an external USB power pack for use on the go.
+The adapter can be powered by a USB power source, such as a USB adapter or a portable power bank.
 
-## Software
-
-1. Install Arduino IDE 2.x [https://www.arduino.cc](https://www.arduino.cc)
-1. Add additional library source in Arduino IDE. Settings > Additional board manager URLs: `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
-1. Install the esp32 by Espressif Systems board library
-1. Install the M5Unified library
-1. Install FastLED library
-1. Install FreeRTOS library
-1. Install ArduinoQueue library
-1. Install ArduinoLog library
-1. Clone this repo
-1. Flash the code to the M5Stack ATOM-Lite board
-1. Download [B.B. Link Configurator](https://apps.apple.com/us/app/b-b-link-configurator/id6476163710) app on your phone
-1. Download RadioMail on your phone [https://radiomail.app](https://radiomail.app)
+## Build
+1. Install Arduino IDE [https://www.arduino.cc](https://www.arduino.cc)
+2. Add additional board manager URLs in Arduino IDE Settings: `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
+3. Install the ESP32 board library by Espressif Systems
+4. Install the M5Unified library
+5. Install the FastLED library
+6. Install the FreeRTOS library
+7. Install the ArduinoQueue library
+8. Install the ArduinoLog library
+9. Clone this repository
+10. Flash the code to the M5Stack ATOM-Lite board
+11. Download the [B.B. Link Configurator](https://apps.apple.com/us/app/b-b-link-configurator/id6476163710) app on your phone
+12. Download RadioMail on your phone [https://radiomail.app](https://radiomail.app)
 
 ### Rig Control
 
-By default, the adapter will set the radio to KISS mode and automatically respond to RadioMail's instructions to switch frequencies, enabling seamless operation. If you prefer the adapter not to alter radio settings during use, toggle off the 'Control Frequency' option in the configurator app.
+By default, the adapter sets the radio to KISS mode and automatically responds to RadioMail's instructions to switch frequencies, enabling seamless operation. If you prefer the adapter not to alter radio settings during use, toggle off the 'Control Frequency' option in the configurator app.
 
 ## Operating Instructions
 
-### Powering
-#### On
-Connect the adapter to a USB power source.
+### Powering On/Off
+- **On**: Connect the adapter to a USB power source.
+- **Off**: Disconnect the adapter from the USB power source.
 
-#### Off
-Disconnect the adapter from the USB power source.
+### Pairing with a Radio (One-Time Setup)
 
-### Pairing with a Radio (one time only)
-
-1. Turn on adapter
-1. Open B.B. Link Configurator app on your  phone
-1. After a few seconds, `B.B. Link` appears in the list of nearby adapters. Select it.
-1. Set the radio in Bluetooth discovery mode. Navigate to 'Menu -> Bluetooth -> Pairing Mode' on the radio.
-1. Tap 'Paired Radio' on B.B. Link app
-1. Wait a few seconds, the name of your radio should appear in the list. Select it.
-1. After a few seconds a PIN prompt should appear on the radio. Press 'OK' to accept. This step is only necessary once; afterwards, the adapter will automatically try to reconnect with the radio.
-1. Successful pairing is indicated by a breathing blue LED on the adapter.
+1. Turn on the adapter.
+2. Open the B.B. Link Configurator app on your phone.
+3. After a few seconds, `B.B. Link` appears in the list of nearby adapters. Select it.
+4. Set the radio in Bluetooth discovery mode. Navigate to 'Menu -> Bluetooth -> Pairing Mode' on the radio.
+5. Tap 'Paired Radio' in the B.B. Link app.
+6. Wait a few seconds; the name of your radio should appear in the list. Select it.
+7. After a few seconds, a PIN prompt should appear on the radio. Press 'OK' to accept. This step is only necessary once; afterwards, the adapter will automatically try to reconnect with the radio.
+8. Successful pairing is indicated by a breathing blue LED on the adapter.
 
 ### Pairing with iPhone or iPad
 
-1. Make sure B.B. Link Configurator app is fully closed
-1. Open the RadioMail app. Proceed to 'Settings -> KISS TNC Modem -> Default TNC'.
-1. `B.B. Link` should be visible in the discovery screen.
-1. Select `B.B. Link` and tap 'Done'.
-1. Navigate to the connection screen and choose a packet station.
-1. A solid blue LED on the adapter signals that RadioMail has connected. Red and green LEDs will flash to indicate data transmission and reception.
+1. Make sure the B.B. Link Configurator app is fully closed.
+2. Open the RadioMail app. Proceed to 'Settings -> KISS TNC Modem -> Default TNC'.
+3. `B.B. Link` should be visible in the discovery screen.
+4. Select `B.B. Link` and tap 'Done'.
+5. Navigate to the connection screen and choose a packet station.
+6. A solid blue LED on the adapter signals that RadioMail has connected. Red and green LEDs will flash to indicate data transmission and reception.
 
-### User Interface
-#### Button (Main Button)
-- Long press: Power on/off
-- Short press: Reconnect to radio and/or iOS device. 
-#### Button (Side Button)
-- Long press: Reboot the adapter
+## User Interface
 
-#### LED Indicator
+### Buttons
+- **Main Button**:
+  - Long press: Power on/off
+  - Short press: Reconnect to radio and/or iOS device
+- **Side Button**:
+  - Long press: Reboot the adapter
 
-**Adapter's Status**
-- 🟠: Idle, adapter waiting to pair
-- 🔵: (slow flash): Adapter scanning for radio
-- 🔵: (breathing): Idle, paired with radio
-- 🔵: Ready, radio and iOS device paired
-- 🟠: (fast blink): Shutting down
-- 🔴: (slow flash): **Fatal error**, must reset
+### LED Indicators
 
-**Data Activity**
+#### Adapter Status
+| Color | Status |
+|-------|--------|
+| 🟠 | Idle, adapter waiting to pair |
+| 🔵 (slow flash) | Adapter scanning for radio |
+| 🔵 (breathing) | Idle, paired with radio |
+| 🔵 | Ready, radio and iOS device paired |
+| 🟠 (fast blink) | Shutting down |
+| 🔴 (slow flash) | **Fatal error**, must reset |
 
-- 🟢: Rx (Receiving)
-- 🔴: Tx (Transmitting)
-- 🟣: Rx/Tx (Both Receiving and Transmitting)
+#### Data Activity
+| Color | Status |
+|-------|--------|
+| 🟢 | Rx (Receiving) |
+| 🔴 | Tx (Transmitting) |
+| 🟣 | Rx/Tx (Both Receiving and Transmitting) |
 
-### Factory Reset
+## Factory Reset
 
-You can reset the adapter to its default configuration. This will clear the list of previously paired devices and restoring default settings. Simply tap 'Reset Adapter' in the configurator app.
+You can reset the adapter to its default configuration. This will clear the list of previously paired devices and restore default settings. Simply tap 'Reset Adapter' in the configurator app.
 
-Alternatively, you can reset the adapter by connecting it to a computer. Here's how to do it:
+Alternatively, you can reset the adapter by connecting it to a computer:
 
 1. Launch the Arduino IDE on your PC.
-1. Connect the adapter to your PC using a USB cable.
-1. Navigate to the Serial Monitor within the IDE.
-1. Type `R` into the Serial Monitor and send the command.
-1. Monitor the response in the Serial Monitor which will confirm the clearing of the previously paired devices.
-1. After the process is complete, disconnect the adapter from your PC.
+2. Connect the adapter to your PC using a USB cable.
+3. Navigate to the Serial Monitor within the IDE.
+4. Type `R` into the Serial Monitor and send the command.
+5. Monitor the response in the Serial Monitor, which will confirm the clearing of previously paired devices.
+6. After the process is complete, disconnect the adapter from your PC.
 
 ## Troubleshooting
 
-* If the adapter connects to the radio but the radio does not transmit, check the TNC settings. Go to Menu > Configuration > Interface > KISS (983) and set it to Bluetooth.
+If the adapter connects to the radio but the radio does not transmit, check the TNC settings. Go to Menu > Configuration > Interface > KISS (983) and set it to Bluetooth.
 
 ## How to Contribute
 
 This project is open source, so everyone's contribution is welcome. Here's a quick guide to get started:
 
-* **Share**: If you build your own adapter, share it online! Post photos, write a blog post, or create a tutorial video to show others how it's done.
-* **Update Documentation**: Help improve or correct the documentation. Fork the repo, make your updates, and submit a pull request.
-* **Submit Change Requests**: If you're developing a new feature or bug fix, fork the repository, create a new branch for your changes, and submit a pull request with a clear description of your modifications.
-* **Write Good Issue Reports**: If you encounter bugs or have feature suggestions, please submit an issue report with a clear title, a detailed description, and steps to reproduce the issue if it's a bug.
+- **Share**: If you build your own adapter, share it online! Post photos, write a blog post, or create a tutorial video to show others how it's done.
+- **Update Documentation**: Help improve or correct the documentation. Fork the repo, make your updates, and submit a pull request.
+- **Submit Change Requests**: If you're developing a new feature or bug fix, fork the repository, create a new branch for your changes, and submit a pull request with a clear description of your modifications.
+- **Write Good Issue Reports**: If you encounter bugs or have feature suggestions, please submit an issue report with a clear title, a detailed description, and steps to reproduce the issue if it's a bug.
 
 The source code for the [Configurator](https://github.com/islandmagic/ios-bblink-config) app is available as well.
-
