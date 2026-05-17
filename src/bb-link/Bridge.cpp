@@ -2,6 +2,8 @@
 #include "Bridge.h"
 #include "Adapter.h"
 #include <map>
+#include <esp_gap_ble_api.h>
+#include <esp_gap_bt_api.h>
 
 /*
   More info about those magic numbers
@@ -190,6 +192,7 @@ bool Bridge::initBTC()
   }
   else
   {
+    configureBluetoothPower();
     return true;
   }
 }
@@ -209,6 +212,7 @@ bool Bridge::initBLE()
   Log.traceln("Bridge: initBLE");
 
   BLEDevice::init(adapterName.c_str());
+  configureBluetoothPower();
   pBLEServer = BLEDevice::createServer();
   pBLEServer->setCallbacks(this);
 
@@ -233,6 +237,17 @@ bool Bridge::initBLE()
   pService->start();
 
   return true;
+}
+
+void Bridge::configureBluetoothPower()
+{
+#if BB_LINK_MOBILE_POWER_PROFILE
+  esp_bredr_tx_power_set(ESP_PWR_LVL_N0, ESP_PWR_LVL_P3);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_N0);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_N0);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_CONN_HDL0, ESP_PWR_LVL_N0);
+  Log.infoln("Mobile power profile: Bluetooth TX power limited");
+#endif
 }
 
 BLEServer *Bridge::getBLEServer()
