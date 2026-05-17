@@ -14,7 +14,7 @@
 
 #include <esp_ota_ops.h>
 
-#define ADAPTER_NAME "B.B. Link"
+#define ADAPTER_NAME "B.B. Link ATOM Lite"
 
 #define FIRMWARE_VERSION_MAJOR 0
 #define FIRMWARE_VERSION_MINOR 7
