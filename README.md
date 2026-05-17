@@ -21,12 +21,19 @@ The adapter is based on the ESP32 microcontroller, which provides support for bo
 ### Materials
 
 1. M5Stack ATOM-Lite [Buy](https://shop.m5stack.com/products/m5atom-lite-v2-0)
-2. External USB power bank
+2. USB power source: power bank, USB-C iPhone, USB-C iPad, or powered Lightning adapter
 3. USB-C cable
 
 ### Power
 
-The adapter can be powered by a USB power source, such as a USB adapter or a portable power bank.
+The adapter can be powered by a USB power source, such as a USB adapter, portable power bank, USB-C iPhone, or USB-C iPad. USB-C iPhone/iPad direct power is supported by the firmware's default mobile power profile.
+
+To power the adapter from an iPhone or iPad:
+
+- USB-C iPhone/iPad: connect the adapter directly with a USB-C to USB-C cable.
+- Lightning iPhone/iPad: use Apple's Lightning to USB Camera Adapter or Lightning to USB 3 Camera Adapter. If the device reports that the accessory needs too much power, connect external power to the adapter.
+
+The firmware keeps the CPU clock, Bluetooth transmit power, and status LED brightness low by default so the adapter draws less current from mobile devices. This assumes the board is powered through the ATOM-Lite USB-C port; USB-C source detection itself is handled by the board hardware, not firmware.
 
 ## Build
 1. Install Arduino IDE [https://www.arduino.cc](https://www.arduino.cc)
@@ -49,7 +56,7 @@ By default, the adapter sets the radio to KISS mode and automatically responds t
 ## Operating Instructions
 
 ### Powering On/Off
-- **On**: Connect the adapter to a USB power source.
+- **On**: Connect the adapter to a USB power source, including a USB-C iPhone or iPad.
 - **Off**: Disconnect the adapter from the USB power source.
 
 ### Pairing with a Radio (One-Time Setup)

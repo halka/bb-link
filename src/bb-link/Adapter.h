@@ -23,6 +23,10 @@
 #define DEVICE_NAMESPACE "bb-link-hw"
 #define IDENTITY_KEY "identity"
 
+#ifndef BB_LINK_MOBILE_POWER_PROFILE
+#define BB_LINK_MOBILE_POWER_PROFILE 1
+#endif
+
 // Atom Lite button (GPIO39). RTC-IO capable so it can wake from deep sleep.
 #define ATOM_LITE_BTN_GPIO GPIO_NUM_39
 

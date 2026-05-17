@@ -91,6 +91,7 @@ private:
 
   bool initBTC();
   bool initBLE();
+  void configureBluetoothPower();
   void startAdvertisingBLE();
   void stopAdvertisingBLE();
   void clearAllPendingBTCData();

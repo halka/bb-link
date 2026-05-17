@@ -9,7 +9,11 @@
 #include "StatusIndicatorBase.h"
 
 #define ATOM_LITE_LED_GPIO 27
-#define STATUS_INDICATOR_DEFAULT_BRIGHTNESS 24
+#ifndef STATUS_INDICATOR_DEFAULT_BRIGHTNESS
+#define STATUS_INDICATOR_DEFAULT_BRIGHTNESS 32
+#endif
+
+#define STATUS_INDICATOR_BOOT_TEST_MS 250
 
 #define FLASH_LED_ON_PERIOD_MS 60
 #define FLASH_LED_OFF_PERIOD_MS 600
@@ -25,6 +29,9 @@ public:
   {
     FastLED.addLeds<SK6812, ATOM_LITE_LED_GPIO, GRB>(&led, 1);
     FastLED.setBrightness(STATUS_INDICATOR_DEFAULT_BRIGHTNESS);
+    led = CRGB(0xff8503);
+    FastLED.show();
+    delay(STATUS_INDICATOR_BOOT_TEST_MS);
     led = CRGB::Black;
     FastLED.show();
 
@@ -101,8 +108,8 @@ private:
     {
       currentBrightness = brightness;
       FastLED.setBrightness(currentBrightness);
-      FastLED.show();
     }
+    FastLED.show();
   }
 
   void setColorMaybe(uint32_t color)
@@ -111,8 +118,8 @@ private:
     {
       currentColor = color;
       led = CRGB(color);
-      FastLED.show();
     }
+    FastLED.show();
   }
 
   void tickBlink(unsigned long onPeriod, unsigned long offPeriod)
