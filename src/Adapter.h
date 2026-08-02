@@ -13,7 +13,7 @@
 #include "FiniteStateMachine.h"
 
 #ifndef ADAPTER_NAME
-#define ADAPTER_NAME "B.B. Link"
+#define ADAPTER_NAME "B.B. Link Atom"
 #endif
 
 #define FIRMWARE_VERSION_MAJOR 0
