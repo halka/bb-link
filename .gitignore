@@ -51,6 +51,7 @@ Thumbs.db
 .vscode/
 
 src/bb-link/build/
+tests/build/
 
 *.o
 *.out

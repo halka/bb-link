@@ -36,18 +36,16 @@ To power the adapter from an iPhone or iPad:
 The firmware keeps the CPU clock, Bluetooth transmit power, and status LED brightness low by default so the adapter draws less current from mobile devices. This assumes the board is powered through the ATOM-Lite USB-C port; USB-C source detection itself is handled by the board hardware, not firmware.
 
 ## Build
-1. Install Arduino IDE [https://www.arduino.cc](https://www.arduino.cc)
-2. Add additional board manager URLs in Arduino IDE Settings: `https://espressif.github.io/arduino-esp32/package_esp32_index.json`
-3. Install the ESP32 board library by Espressif Systems
-4. Install the M5Unified library
-5. Install the FastLED library
-6. Install the FreeRTOS library
-7. Install the ArduinoQueue library
-8. Install the ArduinoLog library
-9. Clone this repository
-10. Flash the code to the M5Stack ATOM-Lite board
-11. Download the [B.B. Link Configurator](https://apps.apple.com/us/app/b-b-link-configurator/id6476163710) app on your phone
-12. Download RadioMail on your phone [https://radiomail.app](https://radiomail.app)
+
+1. Install [Arduino IDE](https://www.arduino.cc/en/software).
+2. Add `https://espressif.github.io/arduino-esp32/package_esp32_index.json` to the additional Board Manager URLs.
+3. Install **esp32 by Espressif Systems 3.3.11**.
+4. Install M5Unified 0.2.19, FastLED 3.10.5, ArduinoQueue 1.2.5, and ArduinoLog 1.1.1.
+5. Select **M5Atom** as the board (`esp32:esp32:m5stack_atom` in Arduino CLI).
+6. Open `src/bb-link/bb-link.ino`, compile, and flash the ATOM Lite.
+7. Install [B.B. Link Configurator](https://apps.apple.com/us/app/b-b-link-configurator/id6476163710) and [RadioMail](https://radiomail.app) on the iPhone or iPad.
+
+The firmware advertises the compatibility name `B.B. Link` by default. A custom name can be supplied at build time with `ADAPTER_NAME`, but application-side rig-control detection must be verified if the name is changed.
 
 ### Rig Control
 
@@ -83,10 +81,9 @@ By default, the adapter sets the radio to KISS mode and automatically responds t
 
 ### Buttons
 - **Main Button**:
-  - Long press: Power on/off
-  - Short press: Reconnect to radio and/or iOS device
-- **Side Button**:
-  - Long press: Reboot the adapter
+  - Short press: Disconnect and retry the saved radio connection.
+  - Hold for 2 seconds while running: enter deep sleep. Press once to wake.
+  - Hold for 3 seconds during startup: request the five-minute BLE firmware-update window. The service is exposed only when the build permits signed OTA, or when unsigned physical-access OTA was explicitly enabled at build time.
 
 ### LED Indicators
 
@@ -119,6 +116,31 @@ Alternatively, you can reset the adapter by connecting it to a computer:
 4. Type `R` into the Serial Monitor and send the command.
 5. Monitor the response in the Serial Monitor, which will confirm the clearing of previously paired devices.
 6. After the process is complete, disconnect the adapter from your PC.
+
+## Firmware Update Security
+
+The BLE OTA service is not advertised during normal operation. It requires a three-second physical button hold during startup, uses an encrypted BLE characteristic, closes after five minutes, and checks every ESP-IDF OTA operation for failure. New firmware is marked valid only after the bridge, Bluetooth Classic, BLE, preferences, button, and status indicator have initialized successfully.
+
+Unsigned OTA is disabled in source builds by default. Production OTA builds should use ESP-IDF signed-app verification (`CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT`) and bootloader rollback (`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`). Developers who accept the reduced security of a physically authorized unsigned update may explicitly build with `BB_LINK_ALLOW_UNSIGNED_OTA_WITH_PHYSICAL_ACCESS=1`.
+
+ATOM Lite uses hardware board ID `3`. Its update manifests are published under `atomlite/` on the `ota-firmware` branch. The corresponding Configurator mapping is:
+
+```swift
+case 0x03:
+  return URL(string: "https://raw.githubusercontent.com/halka/bb-link/ota-firmware/atomlite/\(channel).json")
+```
+
+The release workflow builds only the ATOM Lite target and explicitly enables the physical-access unsigned OTA profile. It creates `bb-link-atomlite-<version>.bin`, its SHA-256 checksum, and the beta manifest. The separate **Promote OTA beta** workflow promotes `beta.json` to `latest.json` after validation. For higher-assurance deployments, replace that profile with a custom ESP-IDF core configured for signed-app verification and rollback.
+
+## Tests
+
+The KISS stream parser tests run without Arduino or EpoxyDuino:
+
+```sh
+make -C tests runtests
+```
+
+They cover offset frames, malformed and truncated commands, escaped data, multiple frames in one BLE write, and commands split across writes. The legacy hardware-abstraction tests remain available as `epoxy-tests` and accept `EPOXYDUINO_DIR` instead of relying on a fixed home-directory path.
 
 ## Troubleshooting
 

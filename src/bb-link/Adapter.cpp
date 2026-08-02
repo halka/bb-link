@@ -1,9 +1,12 @@
 #include <ArduinoLog.h>
 #include <esp_sleep.h>
+#include <BLESecurity.h>
 #include "Adapter.h"
 
 #define ACTION_FEEDBACK_DURATION 2000    // Duration for action feedback (long-press registered)
 #define LINGER_TIME_BEFORE_SHUTDOWN 2000 // Grace time so user can release button before sleep
+#define OTA_BUTTON_HOLD_MS 3000
+#define OTA_SESSION_TIMEOUT_MS 300000
 
 #define SERVICE_UUID_OTA "1A68D2B0-C2E4-453F-A2BB-B659D66CF442"
 #define CHARACTERISTIC_UUID_OTA_FLASH "1A68D2B1-C2E4-453F-A2BB-B659D66CF442"
@@ -60,7 +63,9 @@ void Adapter::init() {
   button.setOnLongPressed([this]() { onLongPressed(); });
   button.setOnShortPressed([this]() { onShortPressed(); });
 
-  if (!bridge.init()) {
+  const bool bridgeReady = bridge.init();
+  if (!bridgeReady) {
+    verifyFirmware(false);
     Log.fatalln("FATAL: Bridge init failed !!!!!");
     statusIndicator.set(error);
     while (true) {
@@ -69,11 +74,24 @@ void Adapter::init() {
     }
   }
 
-  initBLEOtaService();
-  verifyFirmware();
+  if (otaModeRequested()) {
+    if (otaSecurityConfigured()) {
+      otaModeEnabled = initBLEOtaService();
+      if (otaModeEnabled)
+        otaModeStartedAt = millis();
+    } else {
+      Log.errorln("OTA: disabled because signed-app verification is not configured");
+    }
+  }
+
+  // Core services, state machines, preferences and BLE/BTC initialization have
+  // all succeeded by this point. Run the bridge once so its initial states and
+  // BLE advertising also enter successfully before accepting an updated image.
+  bridge.perform();
+  verifyFirmware(true);
 }
 
-void Adapter::verifyFirmware() {
+void Adapter::verifyFirmware(bool selfTestPassed) {
   Log.traceln("Checking firmware...");
   const esp_partition_t *running = esp_ota_get_running_partition();
   esp_ota_img_states_t ota_state;
@@ -87,6 +105,13 @@ void Adapter::verifyFirmware() {
     Log.infoln("OTA state: %s", otaState);
 
     if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+      if (!selfTestPassed) {
+        Log.fatalln("Firmware self-test failed; rolling back");
+        esp_err_t error = esp_ota_mark_app_invalid_rollback_and_reboot();
+        Log.fatalln("Rollback failed (0x%x)", static_cast<unsigned int>(error));
+        return;
+      }
+
       if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
         Log.infoln("App is valid, rollback cancelled successfully");
       } else {
@@ -98,10 +123,55 @@ void Adapter::verifyFirmware() {
   }
 }
 
-void Adapter::initBLEOtaService() {
+bool Adapter::otaModeRequested() {
+#if !BB_LINK_ENABLE_BLE_OTA
+  return false;
+#else
+  if (digitalRead(ATOM_LITE_BTN_GPIO) != LOW)
+    return false;
+
+  Log.infoln("OTA: hold the button for %d ms to enter update mode", OTA_BUTTON_HOLD_MS);
+  statusIndicator.set(actionRegistered);
+  const unsigned long started = millis();
+  while (digitalRead(ATOM_LITE_BTN_GPIO) == LOW)
+  {
+    statusIndicator.render();
+    if (millis() - started >= OTA_BUTTON_HOLD_MS)
+    {
+      Log.infoln("OTA: physical-presence update mode requested");
+      return true;
+    }
+    delay(10);
+  }
+  return false;
+#endif
+}
+
+bool Adapter::otaSecurityConfigured() {
+#if (defined(CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT) && CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT) || \
+    (defined(CONFIG_SECURE_BOOT) && CONFIG_SECURE_BOOT) || \
+    BB_LINK_ALLOW_UNSIGNED_OTA_WITH_PHYSICAL_ACCESS
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool Adapter::initBLEOtaService() {
   Log.traceln("Adapter: init BLE OTA service");
 
+  // Encrypt the OTA transport. In signed-app builds, firmware authenticity is
+  // independently enforced by ESP-IDF when esp_ota_end() validates the image.
+  BLESecurity::setAuthenticationMode(true, false, true);
+  BLESecurity::setCapability(ESP_IO_CAP_NONE);
+  BLESecurity::setEncryptionLevel(ESP_BLE_SEC_ENCRYPT_NO_MITM);
+
   BLEService *pOtaService = bridge.getBLEServer()->createService(SERVICE_UUID_OTA);
+  if (pOtaService == nullptr)
+  {
+    Log.errorln("OTA: failed to create service");
+    return false;
+  }
 
   pOtaFlash = pOtaService->createCharacteristic(
     CHARACTERISTIC_UUID_OTA_FLASH,
@@ -111,9 +181,13 @@ void Adapter::initBLEOtaService() {
     CHARACTERISTIC_UUID_OTA_IDENTITY,
     BLECharacteristic::PROPERTY_READ);
 
-  pOtaFlash->addDescriptor(new BLE2902());
+  if (pOtaFlash == nullptr || pOtaIdentity == nullptr)
+  {
+    Log.errorln("OTA: failed to create characteristics");
+    return false;
+  }
 
-  pOtaFlash->setAccessPermissions(ESP_GATT_PERM_WRITE);
+  pOtaFlash->setAccessPermissions(ESP_GATT_PERM_WRITE_ENCRYPTED);
   pOtaIdentity->setAccessPermissions(ESP_GATT_PERM_READ);
 
   pOtaFlash->setCallbacks(this);
@@ -122,6 +196,8 @@ void Adapter::initBLEOtaService() {
   pOtaIdentity->setValue(identity, 6);
 
   pOtaService->start();
+  Log.infoln("OTA: service available for five minutes");
+  return true;
 }
 
 void Adapter::perform() {
@@ -130,6 +206,13 @@ void Adapter::perform() {
     button.process();
   }
   adapterStateMachine.update();
+
+  if (otaModeEnabled && !adapterStateMachine.isInState(otaFlashState) &&
+      millis() - otaModeStartedAt > OTA_SESSION_TIMEOUT_MS) {
+    Log.warningln("OTA: authorized update window expired; rebooting");
+    delay(100);
+    esp_restart();
+  }
 }
 
 void Adapter::updateSendReceiveStatus() {
@@ -167,35 +250,87 @@ void Adapter::onLongPressed() {
 }
 
 void Adapter::onShortPressed() {
-  Log.infoln("Short pressed button");
-  // External power: nothing meaningful to do while awake.
-  // Wake-from-deep-sleep is handled by the ext0 wakeup pin.
+  Log.infoln("Short pressed button, reconnecting radio");
+  bridge.reconnectRadio();
 }
 
 void Adapter::onWrite(BLECharacteristic *pCharacteristic) {
-  String rxData = pCharacteristic->getValue();
+  const size_t rxSize = pCharacteristic->getLength();
+  const uint8_t *rxData = pCharacteristic->getData();
 
-  if (!adapterStateMachine.isInState(otaFlashState)) {
-    Log.infoln("OTA: begin flash");
-    adapterStateMachine.immediateTransitionTo(otaFlashState);
-    esp_ota_begin(esp_ota_get_next_update_partition(NULL), OTA_SIZE_UNKNOWN, &otaHandle);
+  if (!otaModeEnabled || !otaSecurityConfigured()) {
+    Log.errorln("OTA: rejected outside authorized update mode");
+    return;
   }
 
-  if (rxData.length() > 0) {
-    esp_ota_write(otaHandle, rxData.c_str(), rxData.length());
-    Log.infoln("OTA: written %i bytes", rxData.length());
+  if (!otaWriteInProgress) {
+    if (rxSize == 0) {
+      Log.warningln("OTA: ignored empty start packet");
+      return;
+    }
+
+    Log.infoln("OTA: begin flash");
+    adapterStateMachine.immediateTransitionTo(otaFlashState);
+    otaPartition = esp_ota_get_next_update_partition(nullptr);
+    if (otaPartition == nullptr) {
+      abortOta("no update partition");
+      return;
+    }
+
+    esp_err_t error = esp_ota_begin(otaPartition, OTA_SIZE_UNKNOWN, &otaHandle);
+    if (error != ESP_OK) {
+      abortOta("esp_ota_begin failed", error);
+      return;
+    }
+    otaWriteInProgress = true;
+    otaBytesWritten = 0;
+  }
+
+  if (rxSize > 0) {
+    esp_err_t error = esp_ota_write(otaHandle, rxData, rxSize);
+    if (error != ESP_OK) {
+      abortOta("esp_ota_write failed", error);
+      return;
+    }
+    otaBytesWritten += rxSize;
+    Log.infoln("OTA: written %i bytes total", otaBytesWritten);
   } else {
     Log.infoln("OTA: end flash");
-    esp_ota_end(otaHandle);
-    if (esp_ota_set_boot_partition(esp_ota_get_next_update_partition(NULL)) == ESP_OK) {
+    esp_err_t error = esp_ota_end(otaHandle);
+    otaWriteInProgress = false;
+    otaHandle = 0;
+    if (error != ESP_OK) {
+      abortOta("image validation failed", error);
+      return;
+    }
+
+    error = esp_ota_set_boot_partition(otaPartition);
+    if (error == ESP_OK) {
       Log.infoln("OTA: success, rebooting");
       delay(2000);
       esp_restart();
     } else {
-      Log.errorln("OTA: failed");
+      abortOta("esp_ota_set_boot_partition failed", error);
     }
-    adapterStateMachine.transitionTo(idleState);
   }
+}
+
+void Adapter::abortOta(const char *reason, esp_err_t error) {
+  Log.errorln("OTA: %s (0x%x)", reason, static_cast<unsigned int>(error));
+  if (otaWriteInProgress && otaHandle != 0) {
+    esp_err_t abortError = esp_ota_abort(otaHandle);
+    if (abortError != ESP_OK)
+      Log.errorln("OTA: esp_ota_abort failed (0x%x)", static_cast<unsigned int>(abortError));
+  }
+  otaHandle = 0;
+  otaPartition = nullptr;
+  otaBytesWritten = 0;
+  otaWriteInProgress = false;
+  otaModeEnabled = false;
+  statusIndicator.set(error);
+  statusIndicator.render();
+  delay(1000);
+  esp_restart();
 }
 
 void Adapter::onRead(BLECharacteristic *pCharacteristic) {
@@ -330,7 +465,9 @@ void Adapter::otaFlashEnter() {
 }
 
 void Adapter::otaFlashUpdate() {
-  // Handled by BLECharacteristicCallbacks
+  if (adapterStateMachine.timeInCurrentState() > OTA_SESSION_TIMEOUT_MS) {
+    abortOta("update timed out", ESP_ERR_TIMEOUT);
+  }
 }
 
 void Adapter::otaFlashExit() {
