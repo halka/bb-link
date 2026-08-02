@@ -19,7 +19,7 @@
 
 const char* logLevels[] = { "OFF", "FATAL", "ERROR", "WARNING", "INFO", "TRACE", "VERBOSE" };
 
-#include "Adapter.h"
+#include "src/Adapter.h"
 Adapter* adapter = nullptr;
 
 void setup() {
