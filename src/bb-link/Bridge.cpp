@@ -26,6 +26,13 @@ extern bool _isRemoteAddressSet;
 
 extern Adapter *adapter;
 
+static void copyDeviceName(char *destination, size_t destinationSize, const char *source)
+{
+  if (destination == nullptr || destinationSize == 0)
+    return;
+  snprintf(destination, destinationSize, "%s", source == nullptr ? "" : source);
+}
+
 void connectToBluetooth(void *address)
 {
   Log.traceln("BTC: connecting to Bluetooth Classic interface");
@@ -71,13 +78,20 @@ Bridge::Bridge(String adapterName) : bleDisconnectedState(
                                          { this->btcDiscoveryExit(); }),
                                      btcStateMachine(btcDisconnectedState),
                                      adapterName(adapterName),
-                                     cmdQueue(10)
+                                     cmdQueue(MAX_EXTENDED_COMMANDS_PER_WRITE),
+                                     dataQueue(16)
 {
+  queueMutex = xSemaphoreCreateMutex();
 }
 
 bool Bridge::init()
 {
   Log.traceln("Bridge: init");
+  if (queueMutex == nullptr)
+  {
+    Log.fatalln("FATAL: failed to create BLE queue mutex");
+    return false;
+  }
   rxLingerUntil = millis();
   txLingerUntil = millis();
 
@@ -104,20 +118,55 @@ void Bridge::perform()
   uint8_t rxBuf[RX_BUF_SIZE];
   size_t rxLen = 0;
 
-  // Process any command received from BLE
-  while (!cmdQueue.isEmpty())
+  // Commands and KISS data share a sequence across two differently-sized
+  // queues. Merge the heads here so frequency changes and packet data retain
+  // their original BLE write order without allocating command-sized 512-byte
+  // queue entries.
+  while (true)
   {
-    Log.traceln("BLE: dequeueing extended hardware command");
-    processingCmdQueue = true;
-    extended_hw_cmd_t cmd = cmdQueue.dequeue();
-    processExtendedHardwareCommand(&cmd);
+    if (!lockQueues())
+    {
+      Log.errorln("BLE: failed to lock pending queues");
+      break;
+    }
+
+    if (cmdQueue.isEmpty() && dataQueue.isEmpty())
+    {
+      unlockQueues();
+      break;
+    }
+
+    const bool processCommand = !cmdQueue.isEmpty() &&
+      (dataQueue.isEmpty() || cmdQueue.getHeadPtr()->sequence < dataQueue.getHeadPtr()->sequence);
+
+    if (processCommand)
+    {
+      Log.traceln("BLE: dequeueing extended hardware command");
+      processingCmdQueue = true;
+      queued_command_t queued = cmdQueue.dequeue();
+      unlockQueues();
+      processExtendedHardwareCommand(&queued.command);
+      processingCmdQueue = false;
+      continue;
+    }
+
+    ble_data_chunk_t chunk = dataQueue.dequeue();
+    unlockQueues();
+    if (!btcStateMachine.isInState(btcConnectedState))
+    {
+      Log.warningln("BLE: discarding queued data because radio disconnected");
+      continue;
+    }
+    Log.traceln("BLE > BTC (queued): %i", chunk.size);
+    btSerial.write(chunk.data, chunk.size);
+    setTxLinger(BYTE_TRANSMIT_TIME * chunk.size);
   }
-  processingCmdQueue = false;
 
   if (isReady())
   {
     // Buffer data available from BTC
-    while (btSerial.available() && rxLen < mtuSize)
+    const size_t notificationPayload = mtuSize > 3 ? min(static_cast<size_t>(mtuSize - 3), RX_BUF_SIZE) : 20;
+    while (btSerial.available() && rxLen < notificationPayload)
     {
       rxBuf[rxLen++] = btSerial.read();
     }
@@ -132,11 +181,36 @@ void Bridge::perform()
   }
 }
 
+bool Bridge::lockQueues()
+{
+  return queueMutex != nullptr && xSemaphoreTake(queueMutex, portMAX_DELAY) == pdTRUE;
+}
+
+void Bridge::unlockQueues()
+{
+  xSemaphoreGive(queueMutex);
+}
+
 void Bridge::disconnect()
 {
   clearAllPendingBTCData();
   connectToPairedDevice = false;
   btSerial.disconnect();
+}
+
+void Bridge::reconnectRadio()
+{
+  if (remoteName[0] == '\0')
+  {
+    Log.warningln("BTC: no paired radio to reconnect");
+    return;
+  }
+
+  Log.infoln("BTC: manual reconnect requested");
+  clearAllPendingBTCData();
+  connectToPairedDevice = true;
+  btSerial.disconnect();
+  btcStateMachine.immediateTransitionTo(btcDisconnectedState);
 }
 
 void Bridge::factoryReset()
@@ -214,9 +288,19 @@ bool Bridge::initBLE()
   BLEDevice::init(adapterName.c_str());
   configureBluetoothPower();
   pBLEServer = BLEDevice::createServer();
+  if (pBLEServer == nullptr)
+  {
+    Log.errorln("BLE: failed to create server");
+    return false;
+  }
   pBLEServer->setCallbacks(this);
 
   BLEService *pService = pBLEServer->createService(SERVICE_UUID);
+  if (pService == nullptr)
+  {
+    Log.errorln("BLE: failed to create KISS service");
+    return false;
+  }
 
   pTx = pService->createCharacteristic(
       TX_UUID,
@@ -225,6 +309,12 @@ bool Bridge::initBLE()
   pRx = pService->createCharacteristic(
       RX_UUID,
       BLECharacteristic::PROPERTY_NOTIFY);
+
+  if (pTx == nullptr || pRx == nullptr)
+  {
+    Log.errorln("BLE: failed to create KISS characteristics");
+    return false;
+  }
 
   pRx->addDescriptor(new BLE2902());
 
@@ -322,7 +412,7 @@ void Bridge::lookUpLastPairedDevice()
         {
           Log.infoln("Found paired device name: %s", radioName);
           memcpy(remoteAddress, pairedDeviceBtAddr[i], ESP_BD_ADDR_LEN);
-          strcpy(remoteName, radioName.c_str());
+          copyDeviceName(remoteName, sizeof(remoteName), radioName.c_str());
           connectToPairedDevice = true;
           break;
         }
@@ -573,7 +663,7 @@ void Bridge::processExtendedHardwareCommand(extended_hw_cmd_t *cmd)
       {
         Log.infoln("BTC: Pairing with: %s %s", device->getName().c_str(), device->getAddress().toString().c_str());
         memcpy(remoteAddress, device->getAddress().getNative(), sizeof(esp_bd_addr_t));
-        strcpy(remoteName, device->getName().c_str());
+        copyDeviceName(remoteName, sizeof(remoteName), device->getName().c_str());
         connectToPairedDevice = true;
         // force connections
         btcStateMachine.immediateTransitionTo(btcDisconnectedState);
@@ -607,7 +697,7 @@ void Bridge::processExtendedHardwareCommand(extended_hw_cmd_t *cmd)
   {
     Log.traceln("BTC: extended_hw_capabilities");
     uint16_t caps;
-    caps = useRigControl ? CAP_RIG_CTRL : 0 | CAP_FIRMWARE_VERSION;
+    caps = (useRigControl ? CAP_RIG_CTRL : 0) | CAP_FIRMWARE_VERSION;
     reply16(EXTENDED_HW_CMD_CAPABILITIES, caps);
     break;
   }
@@ -617,7 +707,7 @@ void Bridge::processExtendedHardwareCommand(extended_hw_cmd_t *cmd)
     found_device_t paired;
     paired.connected = btcConnected() ? 0x01 : 0x00;
     memcpy(paired.address, remoteAddress, sizeof(esp_bd_addr_t));
-    strcpy(paired.name, remoteName);
+    copyDeviceName(paired.name, sizeof(paired.name), remoteName);
     reply(EXTENDED_HW_CMD_GET_PAIRED_DEVICE, reinterpret_cast<uint8_t *>(&paired), 1 + sizeof(esp_bd_addr_t) + strlen(paired.name));
     break;
   }
@@ -718,7 +808,7 @@ void Bridge::onDisconnect(BLEServer *pServer)
 void Bridge::onMtuChanged(BLEServer *pServer, esp_ble_gatts_cb_param_t *param)
 {
   Log.traceln("BLE: onMtuChanged");
-  mtuSize = param->mtu.mtu;
+  mtuSize = max(static_cast<uint16_t>(23), param->mtu.mtu);
   Log.infoln("New MTU size: %d", mtuSize);
 }
 
@@ -727,33 +817,111 @@ void Bridge::onMtuChanged(BLEServer *pServer, esp_ble_gatts_cb_param_t *param)
 */
 void Bridge::onWrite(BLECharacteristic *pCharacteristic)
 {
-  String txValue = pCharacteristic->getValue();
+  const size_t txSize = pCharacteristic->getLength();
 
-  if (txValue.length() > 0)
+  if (txSize > 0)
   {
-    Log.traceln("BLE Rx: %i", txValue.length());
+    Log.traceln("BLE Rx: %i", txSize);
 
-    extended_hw_cmd_t cmd;
-    if (kissInterceptor.extractExtendedHardwareCommand((uint8_t *)pCharacteristic->getData(), txValue.length(), &cmd))
+    size_t commandCount = 0;
+    size_t passthroughSize = 0;
+    kiss_process_result_t result = kissInterceptor.process(
+      reinterpret_cast<const uint8_t *>(pCharacteristic->getData()),
+      txSize,
+      parsedCommands,
+      MAX_EXTENDED_COMMANDS_PER_WRITE,
+      &commandCount,
+      kissPassthrough,
+      sizeof(kissPassthrough),
+      &passthroughSize);
+
+    if (result != kiss_process_ok)
+    {
+      Log.errorln("BLE: KISS parser rejected write (%d)", result);
+      kissInterceptor.reset();
+      return;
+    }
+
+    if (!lockQueues())
+    {
+      Log.errorln("BLE: failed to lock extended hardware command queue");
+      return;
+    }
+
+    const size_t commandSlots = cmdQueue.maxQueueSize() - cmdQueue.itemCount();
+    if (commandCount > commandSlots)
+    {
+      unlockQueues();
+      Log.errorln("BLE: extended hardware command queue has insufficient capacity");
+      kissInterceptor.reset();
+      return;
+    }
+
+    for (size_t i = 0; i < commandCount; ++i)
     {
       Log.traceln("BLE: queueing extended hardware command");
-      cmdQueue.enqueue(cmd);
-    }
-    else if (btcStateMachine.isInState(btcConnectedState))
-    {
-      // Drop data if we're still processing cmds
-      // This is to avoid sending data to the radio while it may not have changed frequency yet
-      if (processingCmdQueue || !cmdQueue.isEmpty())
+      queued_command_t queued = { nextQueueSequence++, parsedCommands[i] };
+      if (!cmdQueue.enqueue(queued))
       {
-        Log.traceln("BLE: dropping data while still processing hw commands");
+        unlockQueues();
+        Log.errorln("BLE: extended hardware command queue full");
+        kissInterceptor.reset();
         return;
       }
-
-      Log.traceln("BLE > BTC: %i", txValue.length());
-      btSerial.write(pCharacteristic->getData(), txValue.length());
-      setTxLinger(BYTE_TRANSMIT_TIME * txValue.length());
     }
+    unlockQueues();
+
+    queueOrSendBLEData(kissPassthrough, passthroughSize);
   }
+}
+
+void Bridge::queueOrSendBLEData(const uint8_t *data, size_t size)
+{
+  if (data == nullptr || size == 0)
+    return;
+
+  if (!lockQueues())
+  {
+    Log.errorln("BLE: failed to lock pending data queue");
+    return;
+  }
+
+  const bool sendImmediately = btcStateMachine.isInState(btcConnectedState) &&
+    !processingCmdQueue && cmdQueue.isEmpty() && dataQueue.isEmpty();
+  if (sendImmediately)
+  {
+    unlockQueues();
+    Log.traceln("BLE > BTC: %i", size);
+    btSerial.write(data, size);
+    setTxLinger(BYTE_TRANSMIT_TIME * size);
+    return;
+  }
+
+  const size_t chunksRequired = (size + MAX_BLE_WRITE_SIZE - 1) / MAX_BLE_WRITE_SIZE;
+  const size_t chunkSlots = dataQueue.maxQueueSize() - dataQueue.itemCount();
+  if (chunksRequired > chunkSlots)
+  {
+    unlockQueues();
+    Log.errorln("BLE: pending data queue has insufficient capacity; disconnect and retry");
+    return;
+  }
+
+  size_t offset = 0;
+  while (offset < size)
+  {
+    ble_data_chunk_t chunk = {};
+    chunk.sequence = nextQueueSequence++;
+    chunk.size = min(size - offset, sizeof(chunk.data));
+    memcpy(chunk.data, data + offset, chunk.size);
+    if (!dataQueue.enqueue(chunk))
+    {
+      unlockQueues();
+      Log.errorln("BLE: pending data queue full; disconnect and retry");
+      return;
+    }
+    offset += chunk.size;
+  }
+  unlockQueues();
 }
 
 void Bridge::onRead(BLECharacteristic *pCharacteristic)
@@ -835,6 +1003,10 @@ void Bridge::btcConnectedEnter()
 {
   Log.infoln("BTC: connected");
   clearAllPendingBTCData();
+  if (bleStateMachine.isInState(bleConnectedState))
+  {
+    configureRadioForBLESession();
+  }
 }
 
 void Bridge::btcConnectedUpdate()
@@ -871,7 +1043,7 @@ void Bridge::btcDiscoveryEnter()
       found_device_t found;
       found.connected = 0x00;
       memcpy(found.address, pDevice->getAddress().getNative(), sizeof(esp_bd_addr_t));
-      strcpy(found.name, pDevice->getName().c_str());
+      copyDeviceName(found.name, sizeof(found.name), pDevice->getName().c_str());
       reply(EXTENDED_HW_CMD_FOUND_DEVICE, reinterpret_cast<uint8_t *>(&found), 1 + sizeof(esp_bd_addr_t) + strlen(found.name));
     } }))
   {
@@ -902,6 +1074,14 @@ void Bridge::btcDiscoveryExit()
 void Bridge::bleDisconnectedEnter()
 {
   Log.infoln("BLE: disconnected");
+  kissInterceptor.reset();
+  if (lockQueues())
+  {
+    while (!cmdQueue.isEmpty()) cmdQueue.dequeue();
+    while (!dataQueue.isEmpty()) dataQueue.dequeue();
+    processingCmdQueue = false;
+    unlockQueues();
+  }
   startAdvertisingBLE();
 }
 
@@ -919,13 +1099,21 @@ void Bridge::bleConnectedEnter()
   Log.infoln("BLE: connected");
   clearAllPendingBTCData();
 
+  configureRadioForBLESession();
+}
+
+void Bridge::configureRadioForBLESession()
+{
+
   if (useRigControl)
   {
     vfo = vfoUnknown;
     previousTNCMode = tncUnknown;
 
-    // Make sure there is a radio to talk to
-    if (btcStateMachine.isInState(btcConnectedState))
+    // Make sure there is a radio to talk to. This helper is called from both
+    // BLE and Bluetooth Classic connect paths, so reconnecting either side
+    // always re-establishes KISS mode.
+    if (btSerial.connected())
     {
       /*
       * We don't know what TNC mode the radio is in. If the KISS TNC is already on,

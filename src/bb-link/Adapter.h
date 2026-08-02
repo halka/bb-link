@@ -14,11 +14,13 @@
 
 #include <esp_ota_ops.h>
 
-#define ADAPTER_NAME "B.B. Link ATOM Lite"
+#ifndef ADAPTER_NAME
+#define ADAPTER_NAME "B.B. Link"
+#endif
 
 #define FIRMWARE_VERSION_MAJOR 0
 #define FIRMWARE_VERSION_MINOR 7
-#define FIRMWARE_VERSION_PATCH 8
+#define FIRMWARE_VERSION_PATCH 9
 
 #define DEVICE_NAMESPACE "bb-link-hw"
 #define IDENTITY_KEY "identity"
@@ -29,6 +31,16 @@
 
 // Atom Lite button (GPIO39). RTC-IO capable so it can wake from deep sleep.
 #define ATOM_LITE_BTN_GPIO GPIO_NUM_39
+
+#ifndef BB_LINK_ENABLE_BLE_OTA
+#define BB_LINK_ENABLE_BLE_OTA 1
+#endif
+
+// Unsafe unsigned BLE OTA stays disabled unless a developer explicitly opts
+// in. Production builds should enable signed-app verification in ESP-IDF.
+#ifndef BB_LINK_ALLOW_UNSIGNED_OTA_WITH_PHYSICAL_ACCESS
+#define BB_LINK_ALLOW_UNSIGNED_OTA_WITH_PHYSICAL_ACCESS 0
+#endif
 
 enum hardware_board_t {
   hardware_board_unknown = 0,
@@ -69,11 +81,19 @@ private:
   AdapterState otaFlashState;
   FSMT<AdapterState> adapterStateMachine;
 
-  BLECharacteristic *pOtaFlash;
-  BLECharacteristic *pOtaIdentity;
+  BLECharacteristic *pOtaFlash = nullptr;
+  BLECharacteristic *pOtaIdentity = nullptr;
   esp_ota_handle_t otaHandle = 0;
+  const esp_partition_t *otaPartition = nullptr;
+  size_t otaBytesWritten = 0;
+  bool otaModeEnabled = false;
+  bool otaWriteInProgress = false;
+  unsigned long otaModeStartedAt = 0;
 
-  void verifyFirmware();
+  void verifyFirmware(bool selfTestPassed);
+  bool otaModeRequested();
+  bool otaSecurityConfigured();
+  void abortOta(const char *reason, esp_err_t error = ESP_FAIL);
   void onLongPressed();
   void onShortPressed();
   void updateSendReceiveStatus();
@@ -92,7 +112,7 @@ private:
   void otaFlashUpdate();
   void otaFlashExit();
 
-  void initBLEOtaService();
+  bool initBLEOtaService();
 
   void onWrite(BLECharacteristic *pCharacteristic);
   void onRead(BLECharacteristic *pCharacteristic);

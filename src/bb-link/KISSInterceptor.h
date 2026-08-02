@@ -2,12 +2,8 @@
 #ifndef KISSINTERCEPTOR_H
 #define KISSINTERCEPTOR_H
 
-#include "Arduino.h"
-#ifndef EPOXY_DUINO
-#include "BLEDevice.h"
-#else
-#include "MockBLEDevice.h"
-#endif
+#include <stddef.h>
+#include <stdint.h>
 
 static const uint8_t CMD_HARDWARE = 0x06;
 
@@ -62,18 +58,47 @@ struct extended_hw_cmd_t {
 struct found_device_t
 {
   uint8_t connected;
-  esp_bd_addr_t address;
+  uint8_t address[6];
   char name[32];
 };
+
+enum kiss_process_result_t : uint8_t
+{
+  kiss_process_ok = 0,
+  kiss_process_output_overflow,
+  kiss_process_command_overflow
+};
+
 class KISSInterceptor
 {
 public:
   KISSInterceptor();
   bool extractExtendedHardwareCommand(uint8_t *buffer, size_t size, extended_hw_cmd_t *cmd);
+  kiss_process_result_t process(
+    const uint8_t *buffer,
+    size_t size,
+    extended_hw_cmd_t *commands,
+    size_t commandCapacity,
+    size_t *commandCount,
+    uint8_t *passthrough,
+    size_t passthroughCapacity,
+    size_t *passthroughSize);
+  void reset();
   bool escape(uint8_t *buffer, size_t size, uint8_t *result, size_t *resultSize);
   bool unescape(uint8_t *buffer, size_t size, uint8_t *unescapedBuffer, size_t *unescapedSize);
 
 private:
+  static const size_t MAX_FRAME_SIZE = 1024;
+  uint8_t pendingFrame[MAX_FRAME_SIZE];
+  size_t pendingFrameSize;
+
+  bool decodeExtendedHardwareCommand(const uint8_t *frame, size_t size, extended_hw_cmd_t *cmd);
+  bool appendPassthrough(
+    const uint8_t *data,
+    size_t size,
+    uint8_t *passthrough,
+    size_t passthroughCapacity,
+    size_t *passthroughSize);
 };
 
 #endif

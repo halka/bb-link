@@ -62,7 +62,9 @@ public:
     {
       // https://thingpulse.com/breathing-leds-cracking-the-algorithm-behind-our-breathing-pattern/
       float ledBreatheValue = (exp(sin(millis() / 2000.0 * PI)) - 0.36787944) * 108.0;
-      setBrightnessMaybe((uint8_t)ledBreatheValue);
+      uint8_t scaledBrightness = static_cast<uint8_t>(
+        (ledBreatheValue / 255.0f) * STATUS_INDICATOR_DEFAULT_BRIGHTNESS);
+      setBrightnessMaybe(scaledBrightness);
     }
     break;
 
@@ -108,8 +110,8 @@ private:
     {
       currentBrightness = brightness;
       FastLED.setBrightness(currentBrightness);
+      FastLED.show();
     }
-    FastLED.show();
   }
 
   void setColorMaybe(uint32_t color)
@@ -118,8 +120,8 @@ private:
     {
       currentColor = color;
       led = CRGB(color);
+      FastLED.show();
     }
-    FastLED.show();
   }
 
   void tickBlink(unsigned long onPeriod, unsigned long offPeriod)

@@ -1,139 +1,147 @@
 name: Build and Release
+
 on:
+  pull_request:
   push:
+    branches:
+      - master
+      - dev
     tags:
-      - v*
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  ARDUINO_ESP32_VERSION: 3.3.11
+  FQBN: esp32:esp32:m5stack_atom
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        board: [tinypico, pico32]
-        include:
-          - board: tinypico
-            arduino-platform: esp32:esp32
-            arduino-platform-version: 2.0.15
-            arduino-board: esp32:esp32:tinypico
-          - board: pico32
-            arduino-platform: esp32:esp32
-            arduino-platform-version: 2.0.15
-            arduino-board: esp32:esp32:pico32
+  native-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3-pip
-          pip3 install pyserial
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+      - name: Run native tests
+        run: make -C tests runtests
+
+  build:
+    needs: native-tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Set up Arduino CLI
-        uses: arduino/setup-arduino-cli@v1
-      - name: Install core
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install ESP32 core
         run: |
-          arduino-cli core update-index
-          arduino-cli core install --additional-urls "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json" ${{matrix.arduino-platform}}@${{matrix.arduino-platform-version}}
+          arduino-cli core update-index --additional-urls "https://espressif.github.io/arduino-esp32/package_esp32_index.json"
+          arduino-cli core install --additional-urls "https://espressif.github.io/arduino-esp32/package_esp32_index.json" "esp32:esp32@${ARDUINO_ESP32_VERSION}"
+
       - name: Install libraries
         run: |
-          arduino-cli lib install "TinyPICO Helper Library"@1.4.0
-          arduino-cli lib install "FreeRTOS"@11.0.1-5
+          arduino-cli lib install "M5Unified"@0.2.19
+          arduino-cli lib install "FastLED"@3.10.5
           arduino-cli lib install "ArduinoQueue"@1.2.5
           arduino-cli lib install "ArduinoLog"@1.1.1
-          arduino-cli lib install "AUnit"@1.7.1
-      - name: Compile
+
+      - name: Compile ATOM Lite firmware
         run: |
-          arduino-cli compile --fqbn ${{matrix.arduino-board}} --export-binaries src/bb-link/bb-link.ino
-      - name: Define version
+          arduino-cli compile \
+            --fqbn "${FQBN}" \
+            --build-path build/atomlite \
+            --build-property "compiler.cpp.extra_flags=-DBB_LINK_ALLOW_UNSIGNED_OTA_WITH_PHYSICAL_ACCESS=1" \
+            --warnings all \
+            src/bb-link
+
+      - name: Prepare release artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-      - name: Rename binary
-        run: |
-          fqbnpath=$(echo ${{matrix.arduino-board}} | tr ':' '.')
-          cp src/bb-link/build/$fqbnpath/bb-link.ino.bin src/bb-link/build/bb-link-${{matrix.board}}-${{env.VERSION}}.bin
-      - name: Calculate checksum
-        run: |
-          sha256sum src/bb-link/build/bb-link-${{matrix.board}}-${{env.VERSION}}.bin | cut -d ' ' -f 1 > src/bb-link/build/bb-link-${{matrix.board}}-${{env.VERSION}}.bin.sha256.txt
-      - name: Create OTA manifest
-        run: |
-          mkdir -p src/bb-link/build/ota/${{matrix.board}}
-          echo "{
-            \"version\": \"${{env.VERSION}}\",
-            \"url\": \"https://github.com/islandmagic/bb-link/releases/download/v${{env.VERSION}}/bb-link-${{matrix.board}}-${{env.VERSION}}.bin\",
-            \"sha256\": \"$(cat src/bb-link/build/bb-link-${{matrix.board}}-${{env.VERSION}}.bin.sha256.txt)\"
-          }" > src/bb-link/build/ota/${{matrix.board}}/beta.json
-      - name: Upload binaries artifacts
+          VERSION="${GITHUB_REF_NAME#v}"
+          BINARY="bb-link-atomlite-${VERSION}.bin"
+          cp build/atomlite/bb-link.ino.bin "build/atomlite/${BINARY}"
+          sha256sum "build/atomlite/${BINARY}" | cut -d ' ' -f 1 > "build/atomlite/${BINARY}.sha256.txt"
+          mkdir -p build/ota/atomlite
+          SHA256="$(cat "build/atomlite/${BINARY}.sha256.txt")"
+          printf '{\n  "version": "%s",\n  "url": "https://github.com/%s/releases/download/v%s/%s",\n  "sha256": "%s"\n}\n' \
+            "${VERSION}" "${GITHUB_REPOSITORY}" "${VERSION}" "${BINARY}" "${SHA256}" \
+            > build/ota/atomlite/beta.json
+
+      - name: Upload firmware
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: bin-${{matrix.board}}
-          path: src/bb-link/build/bb-link-${{matrix.board}}*
+          name: firmware-atomlite
+          path: |
+            build/atomlite/bb-link-atomlite-*.bin
+            build/atomlite/bb-link-atomlite-*.sha256.txt
           if-no-files-found: error
-      - name: Upload ota artifacts
+
+      - name: Upload OTA manifest
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/upload-artifact@v4
         with:
-          name: ota-${{matrix.board}}
-          path: src/bb-link/build/ota/*/beta.json
+          name: ota-atomlite
+          path: build/ota/atomlite/beta.json
           if-no-files-found: error
+
   release:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: true
-          prerelease: true
-
-      - name: Download artifacts
+      - name: Download firmware
         uses: actions/download-artifact@v4
         with:
+          name: firmware-atomlite
           path: artifacts
-          pattern: bin-*
-          merge-multiple: true
-      - name: Upload Release Assets
-        id: upload_release_assets
-        uses: dwenegar/upload-release-assets@v1
+
+      - name: Create prerelease
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          release_id: ${{ steps.create_release.outputs.id }}
-          assets_path: "./artifacts/*"
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" artifacts/* \
+            --prerelease \
+            --title "Release ${GITHUB_REF_NAME}"
+
   publish-ota:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Download artifacts
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download OTA manifest
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
-          pattern: ota-*
-          merge-multiple: true
-      - name: Setup git user/email
+          name: ota-atomlite
+          path: ${{ runner.temp }}/ota-artifacts/atomlite
+
+      - name: Publish beta manifest
         run: |
-          git config --global user.name github-actions
-          git config --global user.email github-actions@github.com
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ota-firmware
-          path: ota-firmware
-      - name: Publish OTA
-        run: |
-          cp -r artifacts/* ota-firmware/
-          cd ota-firmware
-          [ -z "$(git status -s -- .)" ] && echo "No changes to be committed. Exiting." && exit 0
-          git add -- .
-          git commit -m "Add new beta firmware"
-          git push origin ota-firmware
-          echo "Done."
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          if git ls-remote --exit-code --heads origin ota-firmware; then
+            git fetch origin ota-firmware
+            git switch --force-create ota-firmware origin/ota-firmware
+          else
+            git switch --orphan ota-firmware
+            git rm -r --force .
+          fi
+          mkdir -p atomlite
+          cp "${RUNNER_TEMP}/ota-artifacts/atomlite/beta.json" atomlite/beta.json
+          git add atomlite/beta.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Publish ${GITHUB_REF_NAME} beta firmware"
+          git push origin HEAD:ota-firmware

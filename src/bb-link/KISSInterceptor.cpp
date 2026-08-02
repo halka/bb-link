@@ -1,157 +1,229 @@
-#include <ArduinoLog.h>
 #include "KISSInterceptor.h"
+#include <string.h>
 
 static const uint8_t FEND = 0xC0;
 static const uint8_t FESC = 0xDB;
 static const uint8_t TFEND = 0xDC;
 static const uint8_t TFESC = 0xDD;
 
-KISSInterceptor::KISSInterceptor()
-{
-}
+KISSInterceptor::KISSInterceptor() : pendingFrameSize(0) {}
 
 bool KISSInterceptor::extractExtendedHardwareCommand(uint8_t *buffer, size_t size, extended_hw_cmd_t *cmd)
 {
-  // Look for frame start
-  for (int i = 0; i < size; i++)
+  if (buffer == nullptr || cmd == nullptr || size < 4)
   {
-    if (buffer[i] == FEND)
-    {
-      // Fast check for hardware command
-      if (buffer[i + 1] != CMD_HARDWARE)
-      {
-        break;
-      }
-
-      Log.traceln("Found SET HW KISS frame start at index %d", i);
-      // Look for frame end
-      for (int j = i + 1; j < size; j++)
-      {
-        if (buffer[j] == FEND)
-        {
-          Log.traceln("Found frame end at index %d", j);
-
-          // Copy frame to new buffer
-          uint8_t frame[j - i + 1];
-          memcpy(frame, &buffer[i], j - i + 1);
-
-          // Unescape frame
-          uint8_t unescapedBuffer[size];
-          size_t unescapedSize;
-          if (!unescape(&buffer[i], size - i, unescapedBuffer, &unescapedSize))
-          {
-            Log.errorln("Failed to unescape frame");
-            return false;
-          }
-
-          Log.traceln("Found valid hardware cmd");
-
-          char hexString[3 * unescapedSize + 1];
-          for (int k = 0; k < unescapedSize; k++)
-          {
-            sprintf(&hexString[3 * k], "%02X ", unescapedBuffer[k]);
-          }
-
-          // Display hex content of buffer
-          Log.traceln("Frame: %s", hexString);
-
-          switch (unescapedBuffer[i + 2])
-          {
-          case EXTENDED_HW_CMD_SET_FREQUENCY:
-          {
-            uint32_t frequency = (unescapedBuffer[i + 3] << 24) | (unescapedBuffer[i + 4] << 16) |
-                                 (unescapedBuffer[i + 5] << 8) | unescapedBuffer[i + 6];
-            Log.infoln("Set frequency cmd: %d", frequency);
-            cmd->action = extended_hw_set_frequency;
-            cmd->data.uint32 = frequency;
-            return true;
-          }
-          case EXTENDED_HW_CMD_RESTORE_FREQUENCY:
-            Log.infoln("Restore frequency cmd");
-            cmd->action = extended_hw_restore_frequency;
-            return true;
-
-          case EXTENDED_HW_CMD_SET_BAUD_RATE:
-          {
-            uint8_t baud_rate = unescapedBuffer[i + 3];
-            Log.infoln("Set baud rate cmd: %d", baud_rate);
-            cmd->action = extended_hw_set_baud_rate;
-            cmd->data.uint8 = baud_rate;
-            return true;
-          }
-          case EXTENDED_HW_CMD_START_SCAN:
-            Log.infoln("Start scan cmd");
-            cmd->action = extended_hw_start_scan;
-            return true;
-
-          case EXTENDED_HW_CMD_STOP_SCAN:
-            Log.infoln("Stop scan cmd");
-            cmd->action = extended_hw_stop_scan;
-            return true;
-
-          case EXTENDED_HW_CMD_PAIR_WITH_DEVICE:
-            Log.infoln("Pair with device cmd");
-            cmd->action = extended_hw_pair_with_device;
-            memcpy(cmd->data.bytes, &unescapedBuffer[i + 3], ESP_BD_ADDR_LEN);
-            return true;
-
-          case EXTENDED_HW_CMD_CLEAR_PAIRED_DEVICE:
-            Log.infoln("Clear paired device cmd");
-            cmd->action = extended_hw_clear_paired_device;
-            return true;
-
-          case EXTENDED_HW_CMD_FIRMWARE_VERSION:
-            Log.infoln("Firmware version cmd");
-            cmd->action = extended_hw_firmware_version;
-            return true;
-
-          case EXTENDED_HW_CMD_CAPABILITIES:
-            Log.infoln("Capabilities cmd");
-            cmd->action = extended_hw_capabilities;
-            return true;
-
-          case EXTENDED_HW_CMD_API_VERSION:
-            Log.infoln("API version cmd");
-            cmd->action = extended_hw_api_version;
-            return true;
-
-          case EXTENDED_HW_CMD_GET_PAIRED_DEVICE:
-            Log.infoln("Get paired device cmd");
-            cmd->action = extended_hw_get_paired_device;
-            return true;
-
-          case EXTENDED_HW_CMD_SET_RIG_CTRL:
-            Log.infoln("Set rig control cmd");
-            cmd->action = extended_hw_set_rig_ctrl;
-            cmd->data.uint8 = unescapedBuffer[i + 3];
-            return true;
-
-          case EXTENDED_HW_CMD_FACTORY_RESET:
-            Log.infoln("Factory reset cmd");
-            cmd->action = extended_hw_factory_reset;
-            return true;
-
-          default:
-            Log.errorln("Unknown hardware cmd");
-            return false;
-          }
-        }
-      }
-    }
+    return false;
   }
 
+  for (size_t start = 0; start + 1 < size; ++start)
+  {
+    if (buffer[start] != FEND || buffer[start + 1] != CMD_HARDWARE)
+      continue;
+
+    for (size_t end = start + 2; end < size; ++end)
+    {
+      if (buffer[end] == FEND)
+        return decodeExtendedHardwareCommand(buffer + start, end - start + 1, cmd);
+    }
+  }
   return false;
+}
+
+void KISSInterceptor::reset()
+{
+  pendingFrameSize = 0;
+}
+
+bool KISSInterceptor::appendPassthrough(
+  const uint8_t *data,
+  size_t size,
+  uint8_t *passthrough,
+  size_t passthroughCapacity,
+  size_t *passthroughSize)
+{
+  if (*passthroughSize + size > passthroughCapacity)
+    return false;
+  memcpy(passthrough + *passthroughSize, data, size);
+  *passthroughSize += size;
+  return true;
+}
+
+kiss_process_result_t KISSInterceptor::process(
+  const uint8_t *buffer,
+  size_t size,
+  extended_hw_cmd_t *commands,
+  size_t commandCapacity,
+  size_t *commandCount,
+  uint8_t *passthrough,
+  size_t passthroughCapacity,
+  size_t *passthroughSize)
+{
+  if (commandCount == nullptr || passthroughSize == nullptr ||
+      (size > 0 && buffer == nullptr) ||
+      (commandCapacity > 0 && commands == nullptr) ||
+      (passthroughCapacity > 0 && passthrough == nullptr))
+    return kiss_process_output_overflow;
+
+  *commandCount = 0;
+  *passthroughSize = 0;
+
+  for (size_t i = 0; i < size; ++i)
+  {
+    const uint8_t value = buffer[i];
+
+    if (pendingFrameSize == 0)
+    {
+      if (value == FEND)
+      {
+        pendingFrame[pendingFrameSize++] = value;
+      }
+      else if (!appendPassthrough(&value, 1, passthrough, passthroughCapacity, passthroughSize))
+      {
+        return kiss_process_output_overflow;
+      }
+      continue;
+    }
+
+    if (pendingFrameSize >= MAX_FRAME_SIZE)
+    {
+      if (!appendPassthrough(pendingFrame, pendingFrameSize, passthrough, passthroughCapacity, passthroughSize) ||
+          !appendPassthrough(&value, 1, passthrough, passthroughCapacity, passthroughSize))
+        return kiss_process_output_overflow;
+      pendingFrameSize = 0;
+      continue;
+    }
+
+    pendingFrame[pendingFrameSize++] = value;
+    if (value != FEND)
+      continue;
+
+    if (pendingFrameSize == 2)
+    {
+      // Consecutive FEND bytes are KISS synchronization, not a data frame.
+      pendingFrameSize = 1;
+      continue;
+    }
+
+    const bool isHardwareFrame = pendingFrameSize >= 3 && pendingFrame[1] == CMD_HARDWARE;
+    if (isHardwareFrame)
+    {
+      extended_hw_cmd_t cmd = {};
+      if (decodeExtendedHardwareCommand(pendingFrame, pendingFrameSize, &cmd))
+      {
+        if (*commandCount >= commandCapacity)
+        {
+          pendingFrameSize = 0;
+          return kiss_process_command_overflow;
+        }
+        commands[(*commandCount)++] = cmd;
+      }
+      // Unknown or malformed hardware commands are reserved control frames and
+      // are deliberately not forwarded to the radio.
+    }
+    else if (!appendPassthrough(pendingFrame, pendingFrameSize, passthrough, passthroughCapacity, passthroughSize))
+    {
+      pendingFrameSize = 0;
+      return kiss_process_output_overflow;
+    }
+
+    // A KISS FEND can end one frame and begin the next. Keep it until the next
+    // byte arrives; duplicate FEND delimiters are valid KISS synchronization.
+    pendingFrame[0] = FEND;
+    pendingFrameSize = 1;
+  }
+
+  return kiss_process_ok;
+}
+
+bool KISSInterceptor::decodeExtendedHardwareCommand(const uint8_t *frame, size_t size, extended_hw_cmd_t *cmd)
+{
+  if (frame == nullptr || cmd == nullptr || size < 4 || frame[0] != FEND || frame[size - 1] != FEND)
+    return false;
+
+  uint8_t unescapedBuffer[MAX_FRAME_SIZE];
+  size_t unescapedSize = sizeof(unescapedBuffer);
+  if (!unescape(const_cast<uint8_t *>(frame), size, unescapedBuffer, &unescapedSize) ||
+      unescapedSize < 4 || unescapedBuffer[1] != CMD_HARDWARE)
+    return false;
+
+  memset(cmd, 0, sizeof(*cmd));
+  switch (unescapedBuffer[2])
+  {
+  case EXTENDED_HW_CMD_SET_FREQUENCY:
+    if (unescapedSize != 8) return false;
+    cmd->action = extended_hw_set_frequency;
+    cmd->data.uint32 = (static_cast<uint32_t>(unescapedBuffer[3]) << 24) |
+                       (static_cast<uint32_t>(unescapedBuffer[4]) << 16) |
+                       (static_cast<uint32_t>(unescapedBuffer[5]) << 8) |
+                       static_cast<uint32_t>(unescapedBuffer[6]);
+    return true;
+  case EXTENDED_HW_CMD_SET_BAUD_RATE:
+    if (unescapedSize != 5) return false;
+    cmd->action = extended_hw_set_baud_rate;
+    cmd->data.uint8 = unescapedBuffer[3];
+    return true;
+  case EXTENDED_HW_CMD_PAIR_WITH_DEVICE:
+    if (unescapedSize != 10) return false;
+    cmd->action = extended_hw_pair_with_device;
+    memcpy(cmd->data.bytes, unescapedBuffer + 3, 6);
+    return true;
+  case EXTENDED_HW_CMD_SET_RIG_CTRL:
+    if (unescapedSize != 5) return false;
+    cmd->action = extended_hw_set_rig_ctrl;
+    cmd->data.uint8 = unescapedBuffer[3];
+    return true;
+  case EXTENDED_HW_CMD_RESTORE_FREQUENCY:
+    cmd->action = extended_hw_restore_frequency;
+    break;
+  case EXTENDED_HW_CMD_START_SCAN:
+    cmd->action = extended_hw_start_scan;
+    break;
+  case EXTENDED_HW_CMD_STOP_SCAN:
+    cmd->action = extended_hw_stop_scan;
+    break;
+  case EXTENDED_HW_CMD_CLEAR_PAIRED_DEVICE:
+    cmd->action = extended_hw_clear_paired_device;
+    break;
+  case EXTENDED_HW_CMD_FIRMWARE_VERSION:
+    cmd->action = extended_hw_firmware_version;
+    break;
+  case EXTENDED_HW_CMD_CAPABILITIES:
+    cmd->action = extended_hw_capabilities;
+    break;
+  case EXTENDED_HW_CMD_API_VERSION:
+    cmd->action = extended_hw_api_version;
+    break;
+  case EXTENDED_HW_CMD_GET_PAIRED_DEVICE:
+    cmd->action = extended_hw_get_paired_device;
+    break;
+  case EXTENDED_HW_CMD_FACTORY_RESET:
+    cmd->action = extended_hw_factory_reset;
+    break;
+  default:
+    return false;
+  }
+
+  return unescapedSize == 4;
 }
 
 bool KISSInterceptor::unescape(uint8_t *buffer, size_t size, uint8_t *result, size_t *resultSize)
 {
+  if (buffer == nullptr || result == nullptr || resultSize == nullptr)
+    return false;
+
   uint8_t *src = buffer;
   uint8_t *dst = result;
+  const size_t capacity = *resultSize;
   while(src < buffer + size)
   {
+    if (static_cast<size_t>(dst - result) >= capacity)
+      return false;
+
     if (*src == FESC)
     {
       src++;
+      if (src >= buffer + size)
+        return false;
       if (*src == TFEND)
       {
         *dst = FEND;
@@ -180,6 +252,8 @@ bool KISSInterceptor::unescape(uint8_t *buffer, size_t size, uint8_t *result, si
 // Output buffer is assumed to be large enough to hold the escaped data
 bool KISSInterceptor::escape(uint8_t *buffer, size_t size, uint8_t *result, size_t *resultSize)
 {
+  if (buffer == nullptr || result == nullptr || resultSize == nullptr)
+    return false;
   uint8_t *src = buffer;
   uint8_t *dst = result;
   size_t dstSize = *resultSize;
@@ -192,7 +266,7 @@ bool KISSInterceptor::escape(uint8_t *buffer, size_t size, uint8_t *result, size
   *dst = FEND;
   dst++;
 
-  for (int i = 0; i < size; i++)
+  for (size_t i = 0; i < size; i++)
   {
     if (*src == FEND)
     {

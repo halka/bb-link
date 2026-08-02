@@ -9,6 +9,8 @@
 #include <BLE2902.h>
 #include <Preferences.h>
 #include <ArduinoQueue.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 #include "THD7x.h"
 #include "FiniteStateMachine.h"
@@ -23,6 +25,23 @@ const char PREFERENCES_NAMESPACE[] = "bb-link";
 
 const uint16_t CAP_RIG_CTRL = 0x0010;
 const uint16_t CAP_FIRMWARE_VERSION = 0x0800;
+
+const size_t MAX_BLE_WRITE_SIZE = 512;
+const size_t MAX_KISS_PASSTHROUGH_SIZE = 1536;
+const size_t MAX_EXTENDED_COMMANDS_PER_WRITE = 192;
+
+struct ble_data_chunk_t
+{
+  uint64_t sequence;
+  size_t size;
+  uint8_t data[MAX_BLE_WRITE_SIZE];
+};
+
+struct queued_command_t
+{
+  uint64_t sequence;
+  extended_hw_cmd_t command;
+};
 
 DECLARE_STATE(BLEState);
 DECLARE_STATE(BTCState);
@@ -43,6 +62,7 @@ public:
   bool isRx();
   void clearPairedDevices();
   void disconnect();
+  void reconnectRadio();
   void factoryReset();
   BLEServer * getBLEServer();
   String getAdapterName();
@@ -51,12 +71,12 @@ public:
 
 private:
   String adapterName;
-  BTScanResults *btDeviceList;
-  BLEServer *pBLEServer;
+  BTScanResults *btDeviceList = nullptr;
+  BLEServer *pBLEServer = nullptr;
 
-  BLECharacteristic *pTx;
-  BLECharacteristic *pRx;
-  uint16_t mtuSize = 512;
+  BLECharacteristic *pTx = nullptr;
+  BLECharacteristic *pRx = nullptr;
+  uint16_t mtuSize = 23;
 
   THD7x thd7x = THD7x(btSerial);
   vfo_t vfo = vfoUnknown;
@@ -86,8 +106,13 @@ private:
   bool useRigControl = true;
 
   Preferences preferences;
-  ArduinoQueue<extended_hw_cmd_t> cmdQueue;
-  bool processingCmdQueue = false;
+  ArduinoQueue<queued_command_t> cmdQueue;
+  ArduinoQueue<ble_data_chunk_t> dataQueue;
+  volatile bool processingCmdQueue = false;
+  uint64_t nextQueueSequence = 0;
+  SemaphoreHandle_t queueMutex = nullptr;
+  extended_hw_cmd_t parsedCommands[MAX_EXTENDED_COMMANDS_PER_WRITE];
+  uint8_t kissPassthrough[MAX_KISS_PASSTHROUGH_SIZE];
 
   bool initBTC();
   bool initBLE();
@@ -101,6 +126,10 @@ private:
   void processExtendedHardwareCommand(extended_hw_cmd_t *cmd);
   void clearStoredPairedDeviceInfo();
   void clearRemoteDeviceInfo();
+  void configureRadioForBLESession();
+  void queueOrSendBLEData(const uint8_t *data, size_t size);
+  bool lockQueues();
+  void unlockQueues();
 
   void reply8(uint8_t cmd, uint8_t data);
   void reply16(uint8_t cmd, uint16_t data);
