@@ -1,5 +1,4 @@
-#include <ArduinoLog.h>
-#include "THD7x.h"
+﻿#include "THD7x.h"
 
 /*
   Commands: https://github.com/LA3QMA/TH-D74-Kenwood
@@ -115,7 +114,6 @@ bool THD7x::getRadioId(char *radioId, int len) {
 void THD7x::exitKISS() {
   // https://www.ax25.net/kiss.aspx
   const unsigned char exitKISSSequence[] = { 0xC0, 0xFF, 0xC0 };
-  Log.traceln("(adapter) > BTC: KISS exit sequence");
   for (unsigned char byte : exitKISSSequence) {
     btSerial.write(byte);
   }
@@ -130,7 +128,6 @@ bool THD7x::isKISSMode() {
 }
 
 bool THD7x::sendCmd(const char *cmd, char *response, size_t responseLen, int retry) {
-  Log.traceln("(adapter) > BTC: %s", cmd);
   btSerial.flush();
   btSerial.print(cmd);
   btSerial.print("\r");
@@ -138,21 +135,16 @@ bool THD7x::sendCmd(const char *cmd, char *response, size_t responseLen, int ret
   btSerial.setTimeout(1000);
   size_t lenRead = btSerial.readBytesUntil('\r', response, responseLen - 1);
   if (lenRead == 0) {
-    Log.infoln("No response from command %s", cmd);
     return false;
   }
   if (response[0] == '?') {
-    Log.warningln("Error response from command %s", cmd);
     if (retry--) {
-      Log.infoln("Retry attempt left %i", retry);
       delay(200);
       return sendCmd(cmd, response, responseLen, retry);
     } else {
-      Log.warningln("No more retries");
       return false;
     }
   }
   response[lenRead] = '\0';
-  Log.traceln("(adapter) < BTC: %s", response);
   return (response[0] == cmd[0] && response[1] == cmd[1]);
 }

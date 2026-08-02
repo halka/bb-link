@@ -16,16 +16,9 @@
 */
 
 #include <M5Unified.h>
-#include <ArduinoLog.h>
-
-const char* logLevels[] = { "OFF", "FATAL", "ERROR", "WARNING", "INFO", "TRACE", "VERBOSE" };
 
 #include "src/Adapter.h"
 Adapter* adapter = nullptr;
-
-void logPrintPrefix(Print* _logOutput, int logLevel);
-void logPrintSetColor(Print* _logOutput, int logLevel);
-void logPrintTimestamp(Print* _logOutput);
 
 void setup() {
   auto cfg = M5.config();
@@ -36,9 +29,6 @@ void setup() {
 
   Serial.begin(115200);
   delay(1000);
-
-  Log.begin(LOG_LEVEL_INFO, &Serial);
-  Log.setPrefix(logPrintPrefix);
 
   adapter = new Adapter();
 
@@ -62,52 +52,10 @@ void setup() {
   Serial.printf("Heap free: %d, usage: %d %%\n", freeHeap, 100 - (freeHeap * 100) / heapSize);
   Serial.printf("Flash size: %d, total: %d, usage: %d %%\n", sketchSize, sketchCapacity, (sketchSize * 100) / sketchCapacity);
   Serial.printf("CPU clock: %d Mhz\n", getCpuFrequencyMhz());
-  Serial.printf("Log level: %s\n", logLevels[Log.getLevel()]);
   adapter->init();
 }
 
 void loop() {
   M5.update();
   adapter->perform();
-}
-
-void logPrintPrefix(Print* _logOutput, int logLevel) {
-  logPrintSetColor(_logOutput, logLevel);
-  logPrintTimestamp(_logOutput);
-}
-
-void logPrintSetColor(Print* _logOutput, int logLevel) {
-  switch (logLevel) {
-    case LOG_LEVEL_FATAL:
-    case LOG_LEVEL_ERROR:
-      _logOutput->print("\033[31m");
-      break;
-    case LOG_LEVEL_WARNING:
-      _logOutput->print("\033[33m");
-      break;
-    case LOG_LEVEL_INFO:
-      _logOutput->print("\033[0m");
-      break;
-    case LOG_LEVEL_TRACE:
-      _logOutput->print("\033[36m");
-      break;
-  }
-}
-
-void logPrintTimestamp(Print* _logOutput) {
-  const unsigned long MSECS_PER_SEC = 1000;
-  const unsigned long SECS_PER_MIN = 60;
-  const unsigned long SECS_PER_HOUR = 3600;
-  const unsigned long SECS_PER_DAY = 86400;
-  const unsigned long msecs = millis();
-  const unsigned long secs = msecs / MSECS_PER_SEC;
-  const unsigned long milliseconds = msecs % MSECS_PER_SEC;
-  const unsigned long seconds = secs % SECS_PER_MIN;
-  const unsigned long minutes = (secs / SECS_PER_MIN) % SECS_PER_MIN;
-  const unsigned long hours = (secs % SECS_PER_DAY) / SECS_PER_HOUR;
-
-  char timestamp[20];
-  sprintf(timestamp, "%02lu:%02lu:%02lu.%03lu ", hours, minutes, seconds, milliseconds);
-
-  _logOutput->print(timestamp);
 }
