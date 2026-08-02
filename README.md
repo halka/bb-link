@@ -129,15 +129,15 @@ verification or explicitly enables physical-access unsigned OTA. See
 
 | LED | State |
 |---|---|
-| Yellow | Waiting to pair |
-| Slow flashing blue | Scanning for the radio |
-| Breathing blue | Radio connected; waiting for iOS |
-| Solid blue | Radio and iOS connected |
-| Fast flashing yellow | Entering deep sleep |
-| Slow flashing red | Fatal error; reset required |
-| Green activity | Receiving from the radio |
-| Red activity | Transmitting to the radio |
-| Purple activity | Simultaneous receive/transmit activity |
+| 🟡 | Waiting to pair |
+| 🔵 Slow flashing | Scanning for the radio |
+| 🔵 Breathing | Radio connected; waiting for iOS |
+| 🔵 Solid | Radio and iOS connected |
+| 🟡 Fast flashing | Entering deep sleep |
+| 🔴 Slow flashing | Fatal error; reset required |
+| 🟢 Activity | Receiving from the radio |
+| 🔴 Activity | Transmitting to the radio |
+| 🟣 Activity | Simultaneous receive/transmit activity |
 
 ## Rig control
 
