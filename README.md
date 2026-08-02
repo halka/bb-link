@@ -7,7 +7,7 @@ KISS TNC.
 
 This fork targets the **M5Stack ATOM Lite**. The firmware advertises the
 compatibility name `B.B. Link` and supports radio discovery, reconnect,
-KISS-mode initialization, rig control, deep sleep, and factory reset.
+KISS-mode initialisation, rig control, deep sleep, and factory reset.
 
 ## Table of contents
 
@@ -42,13 +42,13 @@ iPhone/iPad USB connection. The firmware uses an 80 MHz CPU clock, reduced
 Bluetooth transmit power, and low RGB LED brightness to reduce power draw.
 
 > [!TIP]
-> Alternative Power Source, It seems useful! Not Required External Power Source and USB Cable While Operating.
+> Alternative Power Source: It seems useful! No external power source or USB Cable While Operating.
 > 
 > [ATOMIC Motion Base v1.2 with Power Monitor (SKU: A090-V12)](https://shop.m5stack.com/products/atomic-motion-base-v1-2-with-power-monitor)
 
 ## Build and upload
 
-Firmware installation is performed locally over USB with Arduino IDE.
+Firmware is installed locally via USB using the Arduino IDE.
 
 ### Arduino IDE
 
@@ -77,7 +77,7 @@ Firmware installation is performed locally over USB with Arduino IDE.
 4. In the Configurator, open **Paired Radio** and select the radio.
 5. Accept the pairing request on the radio.
 
-The pairing is stored and the adapter reconnects automatically after restart.
+The pairing is stored, and the adapter reconnects automatically after restart.
 A breathing blue LED indicates that the saved radio is connected.
 
 ### Connect RadioMail
@@ -115,7 +115,7 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 
 ### Rig control
 
-Rig control is enabled by default. The adapter initializes KISS mode and can
+Rig control is enabled by default. The adapter initialises KISS mode and can
 respond to RadioMail frequency-change commands. Disable **Control Frequency**
 in B.B. Link Configurator if the adapter must not change radio settings.
 
@@ -147,7 +147,8 @@ directory, which Arduino compiles recursively according to the
 
 ## License and upstream project
 
-This project is licensed under GPL-3.0. The original B.B. Link project and
-product documente were maintained by
+This project is licensed under GPL-3.0. 
+
+The original B.B. Link project and product documentation were maintained by
 [Island Magic Co.](https://islandmagic.co/bb-link), with the upstream source at
 [islandmagic/bb-link](https://github.com/islandmagic/bb-link).
