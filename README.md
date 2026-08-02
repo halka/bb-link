@@ -48,9 +48,7 @@ Bluetooth transmit power, and low RGB LED brightness to reduce power draw.
 
 ## Build and upload
 
-Firmware installation is performed locally over USB with Arduino IDE or
-Arduino CLI. This repository does not include a browser flasher or an automated
-build and release workflow.
+Firmware installation is performed locally over USB with Arduino IDE.
 
 ### Arduino IDE
 
@@ -64,10 +62,10 @@ build and release workflow.
    | FastLED | 3.10.5 |
    | ArduinoQueue | 1.2.5 |
 
-5. Open `bb-link.ino`.
-6. Select **M5Atom** from **Tools > Board**. This matches M5Stack's
+4. Open `bb-link.ino`.
+5. Select **M5Atom** from **Tools > Board**. This matches M5Stack's
    [official ATOM Lite upload guide](https://docs.m5stack.com/en/arduino/m5atom/program).
-7. Select the ATOM Lite serial port and click **Upload**.
+6. Select the ATOM Lite serial port and click **Upload**.
 
 ## Initial setup
 
