@@ -40,6 +40,9 @@ KISS-mode initialization, rig control, deep sleep, and factory reset.
 The ATOM Lite can be powered from a USB adapter, power bank, or a compatible
 iPhone/iPad USB connection. The firmware uses an 80 MHz CPU clock, reduced
 Bluetooth transmit power, and low RGB LED brightness to reduce power draw.
+> ![INFORMATION] Alternative Power Source
+> [ATOMIC Motion Base v1.2 with Power Monitor (INA226AIDGSR)
+SKU: A090-V12](https://shop.m5stack.com/products/atomic-motion-base-v1-2-with-power-monitor)
 
 ## Build and upload
 
@@ -50,15 +53,8 @@ build and release workflow.
 ### Arduino IDE
 
 1. Install the latest [Arduino IDE](https://www.arduino.cc/en/software).
-2. Add the Espressif board index to **Preferences > Additional Boards Manager
-   URLs**:
-
-   ```text
-   https://espressif.github.io/arduino-esp32/package_esp32_index.json
-   ```
-
-3. Install **esp32 by Espressif Systems 3.3.11** in Boards Manager.
-4. Install these libraries in Library Manager:
+2. [Setup M5Stack Environment](https://docs.m5stack.com/en/arduino/arduino_board)
+3. Install these libraries in Library Manager:
 
    | Library | Version |
    |---|---:|
@@ -70,8 +66,6 @@ build and release workflow.
 6. Select **M5Atom** from **Tools > Board**. This matches M5Stack's
    [official ATOM Lite upload guide](https://docs.m5stack.com/en/arduino/m5atom/program).
 7. Select the ATOM Lite serial port and click **Upload**.
-
-Replace the example port with the value shown by `arduino-cli board list`.
 
 ## Initial setup
 
@@ -154,6 +148,6 @@ directory, which Arduino compiles recursively according to the
 ## License and upstream project
 
 This project is licensed under GPL-3.0. The original B.B. Link project and
-product documentation are maintained by
+product documente were maintained by
 [Island Magic Co.](https://islandmagic.co/bb-link), with the upstream source at
 [islandmagic/bb-link](https://github.com/islandmagic/bb-link).
