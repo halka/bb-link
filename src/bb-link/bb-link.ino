@@ -1,5 +1,6 @@
 /*
   (c) 2024 Island Magic Co. All Rights Reserved.
+  (c) 2026 JM8UTW
 
   M5 ATOM LITE port (M5Unified). External power assumed.
 
