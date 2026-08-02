@@ -56,13 +56,29 @@ jobs:
             --warnings all \
             src/bb-link
 
+      - name: Prepare Web Flasher
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: ./scripts/prepare_web_flasher.sh build/atomlite build/web-flasher
+
+      - name: Upload Web Flasher
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-flasher
+          path: build/web-flasher
+          include-hidden-files: true
+          if-no-files-found: error
+
       - name: Prepare release artifacts
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           BINARY="bb-link-atomlite-${VERSION}.bin"
+          FACTORY_BINARY="bb-link-atomlite-${VERSION}-factory.bin"
           cp build/atomlite/bb-link.ino.bin "build/atomlite/${BINARY}"
+          cp build/atomlite/bb-link.ino.merged.bin "build/atomlite/${FACTORY_BINARY}"
           sha256sum "build/atomlite/${BINARY}" | cut -d ' ' -f 1 > "build/atomlite/${BINARY}.sha256.txt"
+          sha256sum "build/atomlite/${FACTORY_BINARY}" | cut -d ' ' -f 1 > "build/atomlite/${FACTORY_BINARY}.sha256.txt"
           mkdir -p build/ota/atomlite
           SHA256="$(cat "build/atomlite/${BINARY}.sha256.txt")"
           printf '{\n  "version": "%s",\n  "url": "https://github.com/%s/releases/download/v%s/%s",\n  "sha256": "%s"\n}\n' \
@@ -86,6 +102,39 @@ jobs:
           name: ota-atomlite
           path: build/ota/atomlite/beta.json
           if-no-files-found: error
+
+  deploy-web-flasher:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - name: Download Web Flasher
+        uses: actions/download-artifact@v4
+        with:
+          name: web-flasher
+          path: web-flasher
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: web-flasher
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
