@@ -37,7 +37,7 @@ KISS-mode initialisation, rig control, deep sleep, and factory reset.
 - iPhone or iPad with
   [B.B. Link Configurator](https://apps.apple.com/us/app/b-b-link-configurator/id6476163710) and [RadioMail](https://radiomail.app)
 
-The ATOM Lite can be powered from a USB adapter, power bank, or a compatible
+The ATOM Lite powered from a USB adapter, power bank, or a compatible
 iPhone/iPad USB connection. The firmware uses an 80 MHz CPU clock, reduced
 Bluetooth transmit power, and low RGB LED brightness to reduce power draw.
 
