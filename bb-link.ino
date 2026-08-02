@@ -1,5 +1,6 @@
 /*
   (c) 2024 Island Magic Co. All Rights Reserved.
+  (c) 2025-2026 JM8UTW
 
   M5 ATOM LITE port (M5Unified). External power assumed.
 
@@ -21,6 +22,10 @@ const char* logLevels[] = { "OFF", "FATAL", "ERROR", "WARNING", "INFO", "TRACE",
 
 #include "src/Adapter.h"
 Adapter* adapter = nullptr;
+
+void logPrintPrefix(Print* _logOutput, int logLevel);
+void logPrintSetColor(Print* _logOutput, int logLevel);
+void logPrintTimestamp(Print* _logOutput);
 
 void setup() {
   auto cfg = M5.config();
@@ -48,11 +53,16 @@ void setup() {
                 getHardwareName(),
                 HARDWARE_VERSION_MAJOR, HARDWARE_VERSION_MINOR);
 
-  Serial.printf("Heap free: %d, usage: %d %%\n", ESP.getFreeHeap(), 100 - (ESP.getFreeHeap() * 100) / ESP.getHeapSize());
-  Serial.printf("Flash size: %d, total: %d, usage: %d %%\n", ESP.getSketchSize(), ESP.getFreeSketchSpace(), (ESP.getSketchSize() * 100) / ESP.getFreeSketchSpace());
+  const uint32_t heapSize = ESP.getHeapSize();
+  const uint32_t freeHeap = ESP.getFreeHeap();
+  const uint32_t sketchSize = ESP.getSketchSize();
+  const uint32_t freeSketchSpace = ESP.getFreeSketchSpace();
+  const uint32_t sketchCapacity = sketchSize + freeSketchSpace;
+
+  Serial.printf("Heap free: %d, usage: %d %%\n", freeHeap, 100 - (freeHeap * 100) / heapSize);
+  Serial.printf("Flash size: %d, total: %d, usage: %d %%\n", sketchSize, sketchCapacity, (sketchSize * 100) / sketchCapacity);
   Serial.printf("CPU clock: %d Mhz\n", getCpuFrequencyMhz());
   Serial.printf("Log level: %s\n", logLevels[Log.getLevel()]);
-
   adapter->init();
 }
 

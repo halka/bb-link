@@ -155,7 +155,6 @@ private:
     case disconnected:      // Idle, waiting to pair
     case shutdown:          // Shutting down
     case actionRegistered:  // Long-press registered
-    case otaFlash:          // OTA in progress (amber, fast blink)
       return 0xff8503;      // Amber
 
     case scanning:          // Scanning for radio
@@ -194,7 +193,6 @@ private:
     case shutdown:          // Amber, fast blink
     case actionRegistered:
     case batteryShutdown:   // Red, fast blink (low-bat immediate shutdown)
-    case otaFlash:
       return fastBlink;
     case error:             // Red, slow flash (fatal error)
       return flash;

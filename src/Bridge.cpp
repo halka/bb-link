@@ -756,7 +756,12 @@ void Bridge::reply16(uint8_t cmd, uint16_t data)
 
 void Bridge::reply(uint8_t cmd, uint8_t *data, size_t size)
 {
-  uint8_t buffer[size + 2];
+  uint8_t buffer[MAX_KISS_FRAME_SIZE];
+  if (size + 2 > sizeof(buffer))
+  {
+    Log.errorln("BLE: response too large");
+    return;
+  }
   buffer[0] = CMD_HARDWARE;
   buffer[1] = cmd;
   memcpy(buffer + 2, data, size);
@@ -765,7 +770,12 @@ void Bridge::reply(uint8_t cmd, uint8_t *data, size_t size)
 
 void Bridge::reply(uint8_t *response, size_t size)
 {
-  uint8_t buffer[size * 2 + 2];
+  uint8_t buffer[MAX_KISS_FRAME_SIZE * 2 + 2];
+  if (size > MAX_KISS_FRAME_SIZE)
+  {
+    Log.errorln("BLE: response too large to escape");
+    return;
+  }
   size_t bufferSize = sizeof(buffer);
 
   if (kissInterceptor.escape(response, size, buffer, &bufferSize))
@@ -823,14 +833,14 @@ void Bridge::onWrite(BLECharacteristic *pCharacteristic)
   {
     Log.traceln("BLE Rx: %i", txSize);
 
-    size_t commandCount = 0;
+    size_t eventCount = 0;
     size_t passthroughSize = 0;
     kiss_process_result_t result = kissInterceptor.process(
       reinterpret_cast<const uint8_t *>(pCharacteristic->getData()),
       txSize,
-      parsedCommands,
-      MAX_EXTENDED_COMMANDS_PER_WRITE,
-      &commandCount,
+      parsedEvents,
+      MAX_KISS_EVENTS_PER_WRITE,
+      &eventCount,
       kissPassthrough,
       sizeof(kissPassthrough),
       &passthroughSize);
@@ -839,6 +849,26 @@ void Bridge::onWrite(BLECharacteristic *pCharacteristic)
     {
       Log.errorln("BLE: KISS parser rejected write (%d)", result);
       kissInterceptor.reset();
+      return;
+    }
+
+    size_t commandCount = 0;
+    size_t dataChunksRequired = 0;
+    for (size_t i = 0; i < eventCount; ++i)
+    {
+      if (parsedEvents[i].type == kiss_output_command)
+      {
+        commandCount++;
+      }
+      else
+      {
+        dataChunksRequired += (parsedEvents[i].size + MAX_BLE_WRITE_SIZE - 1) / MAX_BLE_WRITE_SIZE;
+      }
+    }
+
+    if (commandCount == 0)
+    {
+      queueOrSendBLEData(kissPassthrough, passthroughSize);
       return;
     }
 
@@ -853,26 +883,65 @@ void Bridge::onWrite(BLECharacteristic *pCharacteristic)
     {
       unlockQueues();
       Log.errorln("BLE: extended hardware command queue has insufficient capacity");
+      disconnect();
       kissInterceptor.reset();
       return;
     }
 
-    for (size_t i = 0; i < commandCount; ++i)
+    const size_t chunkSlots = dataQueue.maxQueueSize() - dataQueue.itemCount();
+    if (dataChunksRequired > chunkSlots)
     {
-      Log.traceln("BLE: queueing extended hardware command");
-      queued_command_t queued = { nextQueueSequence++, parsedCommands[i] };
-      if (!cmdQueue.enqueue(queued))
+      unlockQueues();
+      Log.errorln("BLE: pending data queue has insufficient capacity; disconnect and retry");
+      disconnect();
+      kissInterceptor.reset();
+      return;
+    }
+
+    for (size_t i = 0; i < eventCount; ++i)
+    {
+      if (parsedEvents[i].type == kiss_output_command)
+      {
+        Log.traceln("BLE: queueing extended hardware command");
+        queued_command_t queued = { nextQueueSequence++, parsedEvents[i].command };
+        if (!cmdQueue.enqueue(queued))
+        {
+          unlockQueues();
+          Log.errorln("BLE: extended hardware command queue full");
+          disconnect();
+          kissInterceptor.reset();
+          return;
+        }
+      }
+      else if (!queueBLEDataLocked(kissPassthrough + parsedEvents[i].offset, parsedEvents[i].size))
       {
         unlockQueues();
-        Log.errorln("BLE: extended hardware command queue full");
+        Log.errorln("BLE: pending data queue full; disconnect and retry");
+        disconnect();
         kissInterceptor.reset();
         return;
       }
     }
     unlockQueues();
-
-    queueOrSendBLEData(kissPassthrough, passthroughSize);
   }
+}
+
+bool Bridge::queueBLEDataLocked(const uint8_t *data, size_t size)
+{
+  size_t offset = 0;
+  while (offset < size)
+  {
+    ble_data_chunk_t chunk = {};
+    chunk.sequence = nextQueueSequence++;
+    chunk.size = min(size - offset, sizeof(chunk.data));
+    memcpy(chunk.data, data + offset, chunk.size);
+    if (!dataQueue.enqueue(chunk))
+    {
+      return false;
+    }
+    offset += chunk.size;
+  }
+  return true;
 }
 
 void Bridge::queueOrSendBLEData(const uint8_t *data, size_t size)
@@ -903,23 +972,16 @@ void Bridge::queueOrSendBLEData(const uint8_t *data, size_t size)
   {
     unlockQueues();
     Log.errorln("BLE: pending data queue has insufficient capacity; disconnect and retry");
+    disconnect();
     return;
   }
 
-  size_t offset = 0;
-  while (offset < size)
+  if (!queueBLEDataLocked(data, size))
   {
-    ble_data_chunk_t chunk = {};
-    chunk.sequence = nextQueueSequence++;
-    chunk.size = min(size - offset, sizeof(chunk.data));
-    memcpy(chunk.data, data + offset, chunk.size);
-    if (!dataQueue.enqueue(chunk))
-    {
-      unlockQueues();
-      Log.errorln("BLE: pending data queue full; disconnect and retry");
-      return;
-    }
-    offset += chunk.size;
+    unlockQueues();
+    Log.errorln("BLE: pending data queue full; disconnect and retry");
+    disconnect();
+    return;
   }
   unlockQueues();
 }

@@ -39,32 +39,69 @@ bool KISSInterceptor::appendPassthrough(
   size_t size,
   uint8_t *passthrough,
   size_t passthroughCapacity,
-  size_t *passthroughSize)
+  size_t *passthroughSize,
+  kiss_output_event_t *events,
+  size_t eventCapacity,
+  size_t *eventCount)
 {
+  if (size == 0)
+    return true;
   if (*passthroughSize + size > passthroughCapacity)
     return false;
+
+  if (*eventCount > 0 && events[*eventCount - 1].type == kiss_output_data)
+  {
+    events[*eventCount - 1].size += size;
+  }
+  else
+  {
+    if (*eventCount >= eventCapacity)
+      return false;
+    events[*eventCount].type = kiss_output_data;
+    events[*eventCount].offset = *passthroughSize;
+    events[*eventCount].size = size;
+    (*eventCount)++;
+  }
+
   memcpy(passthrough + *passthroughSize, data, size);
   *passthroughSize += size;
+  return true;
+}
+
+bool KISSInterceptor::appendCommand(
+  const extended_hw_cmd_t &cmd,
+  kiss_output_event_t *events,
+  size_t eventCapacity,
+  size_t *eventCount)
+{
+  if (*eventCount >= eventCapacity)
+    return false;
+
+  events[*eventCount].type = kiss_output_command;
+  events[*eventCount].offset = 0;
+  events[*eventCount].size = 0;
+  events[*eventCount].command = cmd;
+  (*eventCount)++;
   return true;
 }
 
 kiss_process_result_t KISSInterceptor::process(
   const uint8_t *buffer,
   size_t size,
-  extended_hw_cmd_t *commands,
-  size_t commandCapacity,
-  size_t *commandCount,
+  kiss_output_event_t *events,
+  size_t eventCapacity,
+  size_t *eventCount,
   uint8_t *passthrough,
   size_t passthroughCapacity,
   size_t *passthroughSize)
 {
-  if (commandCount == nullptr || passthroughSize == nullptr ||
+  if (eventCount == nullptr || passthroughSize == nullptr ||
       (size > 0 && buffer == nullptr) ||
-      (commandCapacity > 0 && commands == nullptr) ||
+      (eventCapacity > 0 && events == nullptr) ||
       (passthroughCapacity > 0 && passthrough == nullptr))
     return kiss_process_output_overflow;
 
-  *commandCount = 0;
+  *eventCount = 0;
   *passthroughSize = 0;
 
   for (size_t i = 0; i < size; ++i)
@@ -77,7 +114,7 @@ kiss_process_result_t KISSInterceptor::process(
       {
         pendingFrame[pendingFrameSize++] = value;
       }
-      else if (!appendPassthrough(&value, 1, passthrough, passthroughCapacity, passthroughSize))
+      else if (!appendPassthrough(&value, 1, passthrough, passthroughCapacity, passthroughSize, events, eventCapacity, eventCount))
       {
         return kiss_process_output_overflow;
       }
@@ -86,8 +123,8 @@ kiss_process_result_t KISSInterceptor::process(
 
     if (pendingFrameSize >= MAX_FRAME_SIZE)
     {
-      if (!appendPassthrough(pendingFrame, pendingFrameSize, passthrough, passthroughCapacity, passthroughSize) ||
-          !appendPassthrough(&value, 1, passthrough, passthroughCapacity, passthroughSize))
+      if (!appendPassthrough(pendingFrame, pendingFrameSize, passthrough, passthroughCapacity, passthroughSize, events, eventCapacity, eventCount) ||
+          !appendPassthrough(&value, 1, passthrough, passthroughCapacity, passthroughSize, events, eventCapacity, eventCount))
         return kiss_process_output_overflow;
       pendingFrameSize = 0;
       continue;
@@ -110,17 +147,16 @@ kiss_process_result_t KISSInterceptor::process(
       extended_hw_cmd_t cmd = {};
       if (decodeExtendedHardwareCommand(pendingFrame, pendingFrameSize, &cmd))
       {
-        if (*commandCount >= commandCapacity)
+        if (!appendCommand(cmd, events, eventCapacity, eventCount))
         {
           pendingFrameSize = 0;
-          return kiss_process_command_overflow;
+          return kiss_process_event_overflow;
         }
-        commands[(*commandCount)++] = cmd;
       }
       // Unknown or malformed hardware commands are reserved control frames and
       // are deliberately not forwarded to the radio.
     }
-    else if (!appendPassthrough(pendingFrame, pendingFrameSize, passthrough, passthroughCapacity, passthroughSize))
+    else if (!appendPassthrough(pendingFrame, pendingFrameSize, passthrough, passthroughCapacity, passthroughSize, events, eventCapacity, eventCount))
     {
       pendingFrameSize = 0;
       return kiss_process_output_overflow;

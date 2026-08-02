@@ -27,8 +27,10 @@ const uint16_t CAP_RIG_CTRL = 0x0010;
 const uint16_t CAP_FIRMWARE_VERSION = 0x0800;
 
 const size_t MAX_BLE_WRITE_SIZE = 512;
+const size_t MAX_KISS_FRAME_SIZE = 1024;
 const size_t MAX_KISS_PASSTHROUGH_SIZE = 1536;
 const size_t MAX_EXTENDED_COMMANDS_PER_WRITE = 192;
+const size_t MAX_KISS_EVENTS_PER_WRITE = 384;
 
 struct ble_data_chunk_t
 {
@@ -111,7 +113,7 @@ private:
   volatile bool processingCmdQueue = false;
   uint64_t nextQueueSequence = 0;
   SemaphoreHandle_t queueMutex = nullptr;
-  extended_hw_cmd_t parsedCommands[MAX_EXTENDED_COMMANDS_PER_WRITE];
+  kiss_output_event_t parsedEvents[MAX_KISS_EVENTS_PER_WRITE];
   uint8_t kissPassthrough[MAX_KISS_PASSTHROUGH_SIZE];
 
   bool initBTC();
@@ -128,6 +130,7 @@ private:
   void clearRemoteDeviceInfo();
   void configureRadioForBLESession();
   void queueOrSendBLEData(const uint8_t *data, size_t size);
+  bool queueBLEDataLocked(const uint8_t *data, size_t size);
   bool lockQueues();
   void unlockQueues();
 

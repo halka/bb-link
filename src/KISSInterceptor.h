@@ -66,7 +66,21 @@ enum kiss_process_result_t : uint8_t
 {
   kiss_process_ok = 0,
   kiss_process_output_overflow,
-  kiss_process_command_overflow
+  kiss_process_event_overflow
+};
+
+enum kiss_output_event_type_t : uint8_t
+{
+  kiss_output_data = 0,
+  kiss_output_command
+};
+
+struct kiss_output_event_t
+{
+  kiss_output_event_type_t type;
+  size_t offset;
+  size_t size;
+  extended_hw_cmd_t command;
 };
 
 class KISSInterceptor
@@ -77,9 +91,9 @@ public:
   kiss_process_result_t process(
     const uint8_t *buffer,
     size_t size,
-    extended_hw_cmd_t *commands,
-    size_t commandCapacity,
-    size_t *commandCount,
+    kiss_output_event_t *events,
+    size_t eventCapacity,
+    size_t *eventCount,
     uint8_t *passthrough,
     size_t passthroughCapacity,
     size_t *passthroughSize);
@@ -98,7 +112,15 @@ private:
     size_t size,
     uint8_t *passthrough,
     size_t passthroughCapacity,
-    size_t *passthroughSize);
+    size_t *passthroughSize,
+    kiss_output_event_t *events,
+    size_t eventCapacity,
+    size_t *eventCount);
+  bool appendCommand(
+    const extended_hw_cmd_t &cmd,
+    kiss_output_event_t *events,
+    size_t eventCapacity,
+    size_t *eventCount);
 };
 
 #endif
