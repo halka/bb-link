@@ -42,9 +42,8 @@ iPhone/iPad USB connection. The firmware uses an 80 MHz CPU clock, reduced
 Bluetooth transmit power, and low RGB LED brightness to reduce power draw.
 
 > [!TIP]
-> Alternative Power Source, It seems useful!
-> [ATOMIC Motion Base v1.2 with Power Monitor (INA226AIDGSR)
-SKU: A090-V12](https://shop.m5stack.com/products/atomic-motion-base-v1-2-with-power-monitor)
+> Alternative Power Source, It seems useful! Not Required External Power Source and USB Cable While Operating.
+> [ATOMIC Motion Base v1.2 with Power Monitor (SKU: A090-V12)](https://shop.m5stack.com/products/atomic-motion-base-v1-2-with-power-monitor)
 
 ## Build and upload
 
