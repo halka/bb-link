@@ -1,6 +1,6 @@
 /*
-  (C) 2024 Island Magic Co. All Rights Reserved.
-  (C) 2025-2026 JM8UTW
+  (c) 2024 Island Magic Co. All Rights Reserved.
+
   M5 ATOM LITE port (M5Unified). External power assumed.
 
   This program is free software: you can redistribute it and/or modify
@@ -41,7 +41,6 @@ void setup() {
   Serial.println("| _ ) | _ )   | |  (_)_ _ | |__");
   Serial.println("| _ \\_| _ \\_  | |__| | ' \\| / /");
   Serial.println("|___(_)___(_) |____|_|_||_|_\\_\\\n");
-  Serial.println("JM8UTW MOD AUG26\n");
 
   Serial.printf("Booting up %s v%d.%d.%d on %s v%d.%d\n\n",
                 adapter->getAdapterName().c_str(),
