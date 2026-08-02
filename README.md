@@ -14,14 +14,6 @@ This repository is optimized for ATOM-Lite.
 
 [![ATOM LITE](https://raw.githubusercontent.com/halka/bb-link/refs/heads/master/assets/atomlite.webp)](https://docs.m5stack.com/en/core/ATOM%20Lite)
 
-## Install from a Browser
-
-Open the [B.B. Link ATOM Lite Web Flasher](https://halka.github.io/bb-link/) in a desktop version of Google Chrome or Microsoft Edge, connect the ATOM Lite with a data-capable USB cable, and select **Install B.B. Link**. No Arduino toolchain is required.
-
-The browser installer writes a complete ESP32 image and performs a factory installation. Saved radio, pairing, and adapter settings are erased. Web Serial is not available to this installer on iPhone or iPad. The page is served over HTTPS by GitHub Pages and uses the upstream [ESP Web Tools](https://esphome.github.io/esp-web-tools/) installer.
-
-Each successful build of `master` deploys the matching firmware to the Web Flasher. Tagged releases also include a `bb-link-atomlite-<version>-factory.bin` complete image for recovery or external flashing. The repository's GitHub Pages source must be set to **GitHub Actions** once before the first deployment.
-
 ## Hardware
 
 The adapter is based on the ESP32 microcontroller, which provides support for both Bluetooth Classic and Bluetooth Low Energy (BLE).
