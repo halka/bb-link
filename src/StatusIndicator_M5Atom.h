@@ -171,13 +171,18 @@ private:
     case duplex:
       return 0xA020F0;      // Purple
 
+    case charging:
+      return 0x00FFFF;      // Cyan
+
     case error:
-    case batteryLow:
-    case batteryShutdown:
       return 0xFF0000;      // Red
 
+    case batteryLow:
+    case batteryShutdown:
+      return 0xFF1493;      // Deep pink
+
     case batteryFull:
-      return 0x00FF00;
+      return 0xFFFFFF;      // White
     }
     return 0xFFFFFF;
   }
@@ -187,6 +192,7 @@ private:
     switch (status)
     {
     case scanning:          // Blue, slow flash
+    case charging:          // Cyan, slow flash (Bluetooth disabled)
       return flash;
     case connected:         // Blue, breathing (paired with radio, awaiting iOS)
       return breathe;

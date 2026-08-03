@@ -64,6 +64,7 @@ public:
   bool isRx();
   void clearPairedDevices();
   void disconnect();
+  bool disableBluetooth();
   void reconnectRadio();
   void factoryReset();
   BLEServer * getBLEServer();

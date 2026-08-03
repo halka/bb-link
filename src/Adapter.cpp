@@ -13,6 +13,10 @@ Adapter::Adapter()
       [this] { this->inUseEnter(); },
       [this] { this->inUseUpdate(); },
       [this] { this->inUseExit(); }),
+    chargingState(
+      [this] { this->chargingEnter(); },
+      [this] { this->chargingUpdate(); },
+      [this] { this->chargingExit(); }),
     shutdownState(
       [this] { this->shutdownEnter(); },
       [this] { this->shutdownUpdate(); },
@@ -98,7 +102,9 @@ void Adapter::onLongPressed() {
 }
 
 void Adapter::onShortPressed() {
-  bridge.reconnectRadio();
+  if (!adapterStateMachine.isInState(chargingState)) {
+    adapterStateMachine.transitionTo(chargingState);
+  }
 }
 
 void Adapter::idleEnter() {
@@ -194,6 +200,23 @@ void Adapter::inUseUpdate() {
 void Adapter::inUseExit() {
 }
 
+void Adapter::chargingEnter() {
+  Serial.println("Entering battery charging mode; Bluetooth disabled");
+  if (bridge.disableBluetooth()) {
+    statusIndicator.set(charging);
+  } else {
+    Serial.println("Failed to disable Bluetooth");
+    statusIndicator.set(error);
+  }
+}
+
+void Adapter::chargingUpdate() {
+  // Charging mode is intentionally terminal until deep sleep or a power cycle.
+}
+
+void Adapter::chargingExit() {
+}
+
 void Adapter::shutdownEnter() {
   statusIndicator.set(shutdown);
 }
@@ -206,4 +229,3 @@ void Adapter::shutdownUpdate() {
 
 void Adapter::shutdownExit() {
 }
-

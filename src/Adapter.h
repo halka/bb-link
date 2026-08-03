@@ -17,8 +17,8 @@
 #endif
 
 #define FIRMWARE_VERSION_MAJOR 0
-#define FIRMWARE_VERSION_MINOR 7
-#define FIRMWARE_VERSION_PATCH 9
+#define FIRMWARE_VERSION_MINOR 8
+#define FIRMWARE_VERSION_PATCH 0
 
 #define DEVICE_NAMESPACE "bb-link-hw"
 #define IDENTITY_KEY "identity"
@@ -65,6 +65,7 @@ private:
 
   AdapterState idleState;
   AdapterState inUseState;
+  AdapterState chargingState;
   AdapterState shutdownState;
   FSMT<AdapterState> adapterStateMachine;
 
@@ -82,6 +83,9 @@ private:
   void inUseEnter();
   void inUseUpdate();
   void inUseExit();
+  void chargingEnter();
+  void chargingUpdate();
+  void chargingExit();
 
   String fetchAdapterName();
 };

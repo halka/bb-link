@@ -125,7 +125,7 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 
 | Action | Result |
 | --- | --- |
-| Short press | Disconnect and retry the saved radio connection |
+| Short press | Enter charging mode (Bluetooth off until restart) |
 | Hold for 2 seconds while running | Enter deep sleep |
 | Press while sleeping | Wake the adapter |
 
@@ -138,10 +138,18 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 | 🔵 Breathing | Radio connected; waiting for iOS |
 | 🔵 Solid | Radio and iOS connected |
 | 🟡 Fast flashing | Entering deep sleep |
+| 🩵 Slow flashing | Battery charging mode; Bluetooth disabled |
 | 🔴 Slow flashing | Fatal error; reset required |
 | 🟢 Activity | Receiving from the radio |
 | 🔴 Activity | Transmitting to the radio |
 | 🟣 Activity | Simultaneous receive/transmit activity |
+
+The stock [Tail Bat](https://docs.m5stack.com/en/atom/tailbat) documentation
+reports charging and full-charge state only on its own red indicator (flashing
+while charging and solid when full), and documents no battery-state signal to
+the ATOM Lite. The cyan ATOM LED therefore identifies the Bluetooth-off
+charging mode rather than measured state of charge. Deep pink is reserved for
+low battery and white for full charge if future hardware exposes those states.
 
 ### Rig control
 

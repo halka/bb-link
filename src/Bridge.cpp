@@ -1,6 +1,8 @@
 ﻿#include "Bridge.h"
 #include "Adapter.h"
 #include <map>
+#include <esp_bt.h>
+#include <esp_bt_main.h>
 #include <esp_gap_ble_api.h>
 #include <esp_gap_bt_api.h>
 
@@ -186,6 +188,29 @@ void Bridge::disconnect()
   clearAllPendingBTCData();
   connectToPairedDevice = false;
   btSerial.disconnect();
+}
+
+bool Bridge::disableBluetooth()
+{
+  // Stop all application-level radio activity before disabling the shared
+  // Bluedroid host and dual-mode Bluetooth controller.
+  stopAdvertisingBLE();
+  btSerial.discoverAsyncStop();
+  disconnect();
+
+  if (esp_bluedroid_get_status() == ESP_BLUEDROID_STATUS_ENABLED &&
+      esp_bluedroid_disable() != ESP_OK)
+  {
+    return false;
+  }
+
+  if (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_ENABLED &&
+      esp_bt_controller_disable() != ESP_OK)
+  {
+    return false;
+  }
+
+  return esp_bt_controller_get_status() != ESP_BT_CONTROLLER_STATUS_ENABLED;
 }
 
 void Bridge::reconnectRadio()
