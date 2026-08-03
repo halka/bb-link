@@ -14,6 +14,7 @@ KISS-mode initialisation, rig control, deep sleep, and factory reset.
 - [B.B. Link for M5Stack ATOM Lite](#bb-link-for-m5stack-atom-lite)
   - [Table of contents](#table-of-contents)
   - [Hardware](#hardware)
+    - [Air travel with the Tail Bat](#air-travel-with-the-tail-bat)
   - [Build and upload](#build-and-upload)
     - [Arduino IDE](#arduino-ide)
   - [Initial setup](#initial-setup)
@@ -31,20 +32,49 @@ KISS-mode initialisation, rig control, deep sleep, and factory reset.
 ## Hardware
 
 - [M5Stack ATOM Lite](https://docs.m5stack.com/en/core/ATOM%20Lite)
-- USB power source
-- USB cable
+- USB power source and USB cable, or the optional
+  [M5Stack Tail Bat](https://docs.m5stack.com/en/atom/tailbat)
 - Kenwood TH-D74 or TH-D75
 - iPhone or iPad with
-  [B.B. Link Configurator](https://apps.apple.com/us/app/b-b-link-configurator/id6476163710) and [RadioMail](https://radiomail.app)
+  [B.B. Link Configurator](https://apps.apple.com/us/app/b-b-link-configurator/id6476163710)
+  and [RadioMail](https://radiomail.app)
 
-The ATOM Lite powered from a USB adapter, power bank, or a compatible
-iPhone/iPad USB connection. The firmware uses an 80 MHz CPU clock, reduced
-Bluetooth transmit power, and low RGB LED brightness to reduce power draw.
+![ATOM Lite and Tail Bat before assembly](docs/images/atom-lite-and-tail-bat.jpeg)
+
+![B.B. Link assembled from an ATOM Lite and Tail Bat](docs/images/bb-link-atom-tail-bat.jpeg)
+
+The ATOM Lite can be powered from a USB adapter, power bank, compatible
+iPhone/iPad USB connection, or Tail Bat. The firmware uses an 80 MHz CPU clock,
+reduced Bluetooth transmit power, and low RGB LED brightness to reduce power
+draw. M5Stack specifies a 190 mAh rechargeable lithium battery for the Tail Bat.
 
 > [!TIP]
-> Alternative Power Source: It seems useful! No external power source or USB Cable While Operating.
-> 
+> The
 > [ATOMIC Motion Base v1.2 with Power Monitor (SKU: A090-V12)](https://shop.m5stack.com/products/atomic-motion-base-v1-2-with-power-monitor)
+> is another battery-powered option that avoids an external power source or
+> USB cable while operating.
+
+### Air travel with the Tail Bat
+
+Carry the B.B. Link and Tail Bat in **carry-on baggage**, not checked baggage.
+Keep the Tail Bat switched off and protect the assembly from damage and
+accidental activation. If the Tail Bat is detached, insulate its exposed
+connector or place it in a separate protective pouch to prevent a short
+circuit. Do not carry a damaged, swollen, or recalled battery.
+
+As of August 2026, the
+[ICAO Technical Instructions, 2025–2026 Edition, Addendum No. 1](https://www.icao.int/sites/default/files/publications/DocSeries/9284_2025_2026_add_01_en.pdf)
+require spare lithium batteries and power banks to be carried in the cabin and
+individually protected against short circuits. The
+[IATA passenger lithium-battery guidance](https://www.iata.org/contentassets/6fea26dd84d24b26a7a1fd5788561d6e/passengers_travelling_with_lithium_batteries.pdf)
+also advises carrying battery-powered devices in hand baggage and checking the
+operating airline's policy, which may be stricter.
+
+M5Stack publishes the Tail Bat capacity in mAh but does not show a Wh rating on
+its product page. Keep the official Tail Bat specification available when
+travelling and ask the airline in advance if it requires a visible Wh rating or
+other battery documentation. Airline staff may decline a battery if its rating
+cannot be verified.
 
 ## Build and upload
 
@@ -57,7 +87,7 @@ Firmware is installed locally via USB using the Arduino IDE.
 3. Install these libraries in Library Manager:
 
    | Library | Version |
-   |---|---:|
+   | --- | ---: |
    | M5Unified | 0.2.19 |
    | FastLED | 3.10.5 |
    | ArduinoQueue | 1.2.5 |
@@ -94,7 +124,7 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 ### Controls
 
 | Action | Result |
-|---|---|
+| --- | --- |
 | Short press | Disconnect and retry the saved radio connection |
 | Hold for 2 seconds while running | Enter deep sleep |
 | Press while sleeping | Wake the adapter |
@@ -102,7 +132,7 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 ### LED status
 
 | LED | State |
-|---|---|
+| --- | --- |
 | 🟡 | Waiting to pair |
 | 🔵 Slow flashing | Scanning for the radio |
 | 🔵 Breathing | Radio connected; waiting for iOS |
@@ -147,7 +177,7 @@ directory, which Arduino compiles recursively according to the
 
 ## License and upstream project
 
-This project is licensed under GPL-3.0. 
+This project is licensed under GPL-3.0.
 
 The original B.B. Link project and product documentation were maintained by
 [Island Magic Co.](https://islandmagic.co/bb-link), with the upstream source at
