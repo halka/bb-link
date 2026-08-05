@@ -1,4 +1,4 @@
-﻿#include "Bridge.h"
+#include "Bridge.h"
 #include "Adapter.h"
 #include <map>
 #include <esp_gap_ble_api.h>
@@ -328,6 +328,10 @@ BLEServer *Bridge::getBLEServer()
 
 void Bridge::startAdvertisingBLE()
 {
+  if (chargingMode)
+  {
+    return;
+  }
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
@@ -729,6 +733,7 @@ void Bridge::reply(uint8_t *response, size_t size)
 */
 void Bridge::onConnect(BLEServer *pServer, esp_ble_gatts_cb_param_t *param)
 {
+  connId = param->connect.conn_id;
 
   esp_ble_conn_update_params_t conn_params = {};
   memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
@@ -744,6 +749,7 @@ void Bridge::onConnect(BLEServer *pServer, esp_ble_gatts_cb_param_t *param)
 
 void Bridge::onDisconnect(BLEServer *pServer)
 {
+  connId = 0xFFFF;
   bleStateMachine.transitionTo(bleDisconnectedState);
 }
 
@@ -940,6 +946,10 @@ void Bridge::onBTAuthCompleteCallback(boolean success)
 */
 void Bridge::btcDisconnectedEnter()
 {
+  if (chargingMode)
+  {
+    return;
+  }
   if (connectToPairedDevice)
   {
     // The connect method in BT serial is blocking. Use a task to connect
@@ -1142,4 +1152,22 @@ void Bridge::bleConnectedExit()
       }
     }
   }
+}
+
+void Bridge::enterChargingMode()
+{
+  chargingMode = true;
+  disconnect();
+  if (pBLEServer != nullptr && connId != 0xFFFF)
+  {
+    pBLEServer->disconnect(connId);
+  }
+  stopAdvertisingBLE();
+}
+
+void Bridge::exitChargingMode()
+{
+  chargingMode = false;
+  reconnectRadio();
+  startAdvertisingBLE();
 }

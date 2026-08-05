@@ -66,7 +66,11 @@ private:
   AdapterState idleState;
   AdapterState inUseState;
   AdapterState shutdownState;
+  AdapterState chargingState;
   FSMT<AdapterState> adapterStateMachine;
+
+  unsigned int shortPressCount = 0;
+  unsigned long lastShortPressTime = 0;
 
   void onLongPressed();
   void onShortPressed();
@@ -82,6 +86,9 @@ private:
   void inUseEnter();
   void inUseUpdate();
   void inUseExit();
+  void chargingEnter();
+  void chargingUpdate();
+  void chargingExit();
 
   String fetchAdapterName();
 };

@@ -14,9 +14,6 @@ KISS-mode initialisation, rig control, deep sleep, and factory reset.
 - [B.B. Link for M5Stack ATOM Lite](#bb-link-for-m5stack-atom-lite)
   - [Table of contents](#table-of-contents)
   - [Hardware](#hardware)
-    - [Air travel with the Tail Bat](#air-travel-with-the-tail-bat)
-  - [Build and upload](#build-and-upload)
-    - [Arduino IDE](#arduino-ide)
   - [Initial setup](#initial-setup)
     - [Pair the radio](#pair-the-radio)
     - [Connect RadioMail](#connect-radiomail)
@@ -25,6 +22,8 @@ KISS-mode initialisation, rig control, deep sleep, and factory reset.
     - [LED status](#led-status)
     - [Rig control](#rig-control)
     - [Factory reset](#factory-reset)
+  - [Build and upload](#build-and-upload)
+    - [Arduino IDE](#arduino-ide)
   - [Troubleshooting](#troubleshooting)
   - [Repository layout](#repository-layout)
   - [License and upstream project](#license-and-upstream-project)
@@ -54,48 +53,31 @@ draw. M5Stack specifies a 190 mAh rechargeable lithium battery for the Tail Bat.
 > is another battery-powered option that avoids an external power source or
 > USB cable while operating.
 
-### Air travel with the Tail Bat
-
-Carry the B.B. Link and Tail Bat in **carry-on baggage**, not checked baggage.
-Keep the Tail Bat switched off and protect the assembly from damage and
-accidental activation. If the Tail Bat is detached, insulate its exposed
-connector or place it in a separate protective pouch to prevent a short
-circuit. Do not carry a damaged, swollen, or recalled battery.
-
-As of August 2026, the
-[ICAO Technical Instructions, 2025–2026 Edition, Addendum No. 1](https://www.icao.int/sites/default/files/publications/DocSeries/9284_2025_2026_add_01_en.pdf)
-require spare lithium batteries and power banks to be carried in the cabin and
-individually protected against short circuits. The
-[IATA passenger lithium-battery guidance](https://www.iata.org/contentassets/6fea26dd84d24b26a7a1fd5788561d6e/passengers_travelling_with_lithium_batteries.pdf)
-also advises carrying battery-powered devices in hand baggage and checking the
-operating airline's policy, which may be stricter.
-
-M5Stack publishes the Tail Bat capacity in mAh but does not show a Wh rating on
-its product page. Keep the official Tail Bat specification available when
-travelling and ask the airline in advance if it requires a visible Wh rating or
-other battery documentation. Airline staff may decline a battery if its rating
-cannot be verified.
-
-## Build and upload
-
-Firmware is installed locally via USB using the Arduino IDE.
-
-### Arduino IDE
-
-1. Install the latest [Arduino IDE](https://www.arduino.cc/en/software).
-2. [Setup M5Stack Environment](https://docs.m5stack.com/en/arduino/arduino_board)
-3. Install these libraries in Library Manager:
-
-   | Library | Version |
-   | --- | ---: |
-   | M5Unified | 0.2.19 |
-   | FastLED | 3.10.5 |
-   | ArduinoQueue | 1.2.5 |
-
-4. Open `bb-link.ino`.
-5. Select **M5Atom** from **Tools > Board**. This matches M5Stack's
-   [official ATOM Lite upload guide](https://docs.m5stack.com/en/arduino/m5atom/program).
-6. Select the ATOM Lite serial port and click **Upload**.
+> [!WARNING]
+> ### Air travel with the Tail Bat
+> 
+> Carry the B.B. Link and Tail Bat in **carry-on baggage**, not checked baggage.
+> Keep the Tail Bat switched off and protect the assembly from damage and
+> accidental activation. If the Tail Bat is detached, insulate its exposed
+> connector or place it in a separate protective pouch to prevent a short
+> circuit. Do not carry a damaged, swollen, or recalled battery.
+> 
+> As of August 2026, the
+> [ICAO Technical Instructions, 2025–2026 Edition, Addendum No. 1](https://www.icao.int/sites/default/files/publications/DocSeries/9284_2025_2026_add_01_en.pdf)
+> require spare lithium batteries and power banks to be carried in the cabin and
+> individually protected against short circuits. The
+> [IATA passenger lithium-battery guidance](https://www.iata.org/contentassets/6fea26dd84d24b26a7a1fd5788561d6e/passengers_travelling_with_lithium_batteries.pdf)
+> also advises carrying battery-powered devices in hand baggage and checking the
+> operating airline's policy, which may be stricter.
+> 
+> M5Stack publishes the Tail Bat capacity in mAh but does not show a Wh rating on
+> its product page. Keep the official Tail Bat specification available when
+> travelling and ask the airline in advance if it requires a visible Wh rating or
+> other battery documentation. Airline staff may decline a battery if its rating
+> cannot be verified.
+> 
+> ![ATOM Lite and Tail Bat before assembly](docs/images/battery.jpg)
+> **3.7V, 900mAh, 3.33Wh**
 
 ## Initial setup
 
@@ -125,7 +107,8 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 
 | Action | Result |
 | --- | --- |
-| Short press | Disconnect and retry the saved radio connection |
+| Short press | Disconnect and retry the saved radio connection (or exit battery charging mode) |
+| Press 3+ times | Enter battery charging mode (disables Bluetooth radio emissions) |
 | Hold for 2 seconds while running | Enter deep sleep |
 | Press while sleeping | Wake the adapter |
 
@@ -137,6 +120,7 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 | 🔵 Slow flashing | Scanning for the radio |
 | 🔵 Breathing | Radio connected; waiting for iOS |
 | 🔵 Solid | Radio and iOS connected |
+| 🩵 Slow flashing | Battery charging mode (Bluetooth off) |
 | 🟡 Fast flashing | Entering deep sleep |
 | 🔴 Slow flashing | Fatal error; reset required |
 | 🟢 Activity | Receiving from the radio |
@@ -154,6 +138,27 @@ in B.B. Link Configurator if the adapter must not change radio settings.
 Use **Reset Adapter** in B.B. Link Configurator, or connect a serial monitor at
 115200 baud and send an uppercase `R`. This clears saved configuration and
 Bluetooth pairing information.
+
+## Build and upload
+
+Firmware is installed locally via USB using the Arduino IDE.
+
+### Arduino IDE
+
+1. Install the latest [Arduino IDE](https://www.arduino.cc/en/software).
+2. [Setup M5Stack Environment](https://docs.m5stack.com/en/arduino/arduino_board)
+3. Install these libraries in Library Manager:
+
+   | Library | Version |
+   | --- | ---: |
+   | M5Unified | 0.2.19 |
+   | FastLED | 3.10.5 |
+   | ArduinoQueue | 1.2.5 |
+
+4. Open `bb-link.ino`.
+5. Select **M5Atom** from **Tools > Board**. This matches M5Stack's
+   [official ATOM Lite upload guide](https://docs.m5stack.com/en/arduino/m5atom/program).
+6. Select the ATOM Lite serial port and click **Upload**.
 
 ## Troubleshooting
 
@@ -181,4 +186,4 @@ This project is licensed under GPL-3.0.
 
 The original B.B. Link project and product documentation were maintained by
 [Island Magic Co.](https://islandmagic.co/bb-link), with the upstream source at
-[islandmagic/bb-link](https://github.com/islandmagic/bb-link).
+[islandmagic/bb-link](https://github.com/islandmagic/bb-link) and [fanlessfan/bb-link](https://github.com/fanlessfan/bb-link).
