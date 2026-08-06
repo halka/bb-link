@@ -88,8 +88,7 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 
 | Action | Result |
 | --- | --- |
-| Short press | Disconnect and retry the saved radio connection (or exit battery charging mode) |
-| Press 3+ times | Enter battery charging mode (disables Bluetooth radio emissions) |
+| Short press | Disconnect and retry the saved radio connection |
 | Hold for 2 seconds while running | Enter deep sleep |
 | Press while sleeping | Wake the adapter |
 
@@ -101,7 +100,6 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 | 🔵 Slow flashing | Scanning for the radio |
 | 🔵 Breathing | Radio connected; waiting for iOS |
 | 🔵 Solid | Radio and iOS connected |
-| 🩵 Slow flashing | Battery charging mode (Bluetooth off) |
 | 🟡 Fast flashing | Entering deep sleep |
 | 🔴 Slow flashing | Fatal error; reset required |
 | 🟢 Activity | Receiving from the radio |

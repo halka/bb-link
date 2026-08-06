@@ -328,10 +328,6 @@ BLEServer *Bridge::getBLEServer()
 
 void Bridge::startAdvertisingBLE()
 {
-  if (chargingMode)
-  {
-    return;
-  }
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
@@ -946,10 +942,6 @@ void Bridge::onBTAuthCompleteCallback(boolean success)
 */
 void Bridge::btcDisconnectedEnter()
 {
-  if (chargingMode)
-  {
-    return;
-  }
   if (connectToPairedDevice)
   {
     // The connect method in BT serial is blocking. Use a task to connect
@@ -1154,20 +1146,4 @@ void Bridge::bleConnectedExit()
   }
 }
 
-void Bridge::enterChargingMode()
-{
-  chargingMode = true;
-  disconnect();
-  if (pBLEServer != nullptr && connId != 0xFFFF)
-  {
-    pBLEServer->disconnect(connId);
-  }
-  stopAdvertisingBLE();
-}
 
-void Bridge::exitChargingMode()
-{
-  chargingMode = false;
-  reconnectRadio();
-  startAdvertisingBLE();
-}

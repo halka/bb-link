@@ -66,8 +66,6 @@ public:
   void disconnect();
   void reconnectRadio();
   void factoryReset();
-  void enterChargingMode();
-  void exitChargingMode();
   BLEServer * getBLEServer();
   String getAdapterName();
   
@@ -108,7 +106,6 @@ private:
   char remoteName[MAX_BTC_DEVICE_NAME_LEN];
   bool connectToPairedDevice = false;
   bool useRigControl = true;
-  bool chargingMode = false;
   uint16_t connId = 0xFFFF;
 
   Preferences preferences;

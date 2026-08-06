@@ -15,7 +15,7 @@ A breathing blue LED indicates that the saved radio is connected.
 
 1. Fully close B.B. Link Configurator.
 2. In RadioMail, open **Settings > KISS TNC Modem > Default TNC**.
-3. Select `B.B. Link`, then tap **Done**.
+3. Select `B.B. Link Atom`, then tap **Done**.
 4. Open the connection screen and select a packet station.
 
 A solid blue LED indicates that both the radio and the iOS device are connected.
@@ -24,8 +24,7 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 
 | Action | Result |
 | --- | --- |
-| Short press | Disconnect and retry the saved radio connection (or exit battery charging mode) |
-| Press 3+ times | Enter battery charging mode (disables Bluetooth radio emissions) |
+| Short press | Disconnect and retry the saved radio connection |
 | Hold for 2 seconds while running | Enter deep sleep |
 | Press while sleeping | Wake the adapter |
 
@@ -37,7 +36,6 @@ A solid blue LED indicates that both the radio and the iOS device are connected.
 | 🔵 Slow flashing | Scanning for the radio |
 | 🔵 Breathing | Radio connected; waiting for iOS |
 | 🔵 Solid | Radio and iOS connected |
-| 🩵 Slow flashing | Battery charging mode (Bluetooth off) |
 | 🟡 Fast flashing | Entering deep sleep |
 | 🔴 Slow flashing | Fatal error; reset required |
 | 🟢 Activity | Receiving from the radio |

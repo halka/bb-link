@@ -17,10 +17,6 @@ Adapter::Adapter()
       [this] { this->shutdownEnter(); },
       [this] { this->shutdownUpdate(); },
       [this] { this->shutdownExit(); }),
-    chargingState(
-      [this] { this->chargingEnter(); },
-      [this] { this->chargingUpdate(); },
-      [this] { this->chargingExit(); }),
     adapterStateMachine(idleState),
     bridge(fetchAdapterName()) {
 }
@@ -102,25 +98,7 @@ void Adapter::onLongPressed() {
 }
 
 void Adapter::onShortPressed() {
-  unsigned long now = millis();
-  if (now - lastShortPressTime < 500) {
-    shortPressCount++;
-  } else {
-    shortPressCount = 1;
-  }
-  lastShortPressTime = now;
-
-  if (shortPressCount >= 3) {
-    shortPressCount = 0;
-    adapterStateMachine.transitionTo(chargingState);
-    return;
-  }
-
-  if (adapterStateMachine.isInState(chargingState)) {
-    adapterStateMachine.transitionTo(idleState);
-  } else {
-    bridge.reconnectRadio();
-  }
+  bridge.reconnectRadio();
 }
 
 void Adapter::idleEnter() {
@@ -227,35 +205,5 @@ void Adapter::shutdownUpdate() {
 }
 
 void Adapter::shutdownExit() {
-}
-
-void Adapter::chargingEnter() {
-  bridge.enterChargingMode();
-  statusIndicator.set(charging);
-}
-
-void Adapter::chargingUpdate() {
-  if (Serial.available()) {
-    char ch = Serial.read();
-    switch (ch) {
-      case 'r':
-        Serial.println("Rebooting...");
-        delay(2000);
-        esp_restart();
-        break;
-      case 'R':
-        Serial.println("Perform factory reset");
-        bridge.factoryReset();
-        adapterStateMachine.transitionTo(idleState);
-        break;
-      case 'i':
-        Serial.printf("Identity: %s\n", getAdapterName().c_str());
-        break;
-    }
-  }
-}
-
-void Adapter::chargingExit() {
-  bridge.exitChargingMode();
 }
 

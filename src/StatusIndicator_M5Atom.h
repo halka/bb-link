@@ -178,9 +178,6 @@ private:
 
     case batteryFull:
       return 0x00FF00;
-
-    case charging:          // Battery charging mode
-      return 0x00FFFF;      // Cyan
     }
     return 0xFFFFFF;
   }
@@ -190,7 +187,6 @@ private:
     switch (status)
     {
     case scanning:          // Blue, slow flash
-    case charging:          // Cyan, slow flash
       return flash;
     case connected:         // Blue, breathing (paired with radio, awaiting iOS)
       return breathe;
