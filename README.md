@@ -56,8 +56,9 @@ draw. M5Stack specifies a 190 mAh rechargeable lithium battery for the Tail Bat.
 > USB cable while operating.
 
 ## Setup
-> [!TIP] Operation Guide Avalable!
-> Save on your Phone, Tablet, or Computer, Complete [Build and upload](#build-and-upload).
+> [!TIP]
+> Operation Guide Available!
+> May be useful. Save on your Phone, Tablet, or Computer. After completing [Build and upload](#build-and-upload).
 > 
 > [Download (PDF)](docs/BB_Link_Atom_Operation_Guide.pdf)
 
