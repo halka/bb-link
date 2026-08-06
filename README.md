@@ -137,6 +137,7 @@ Firmware is installed locally via USB using the Arduino IDE.
 2. [Setup M5Stack Environment](https://docs.m5stack.com/en/arduino/arduino_board)
 
     > [!TIP]
+    > 
     > Add M5Stack's Boards
     > 
     > `File`->`Preferences`->`Additional boards manager URLs`
