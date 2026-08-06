@@ -14,7 +14,7 @@ KISS-mode initialisation, rig control, deep sleep, and factory reset.
 - [B.B. Link for M5Stack ATOM Lite](#bb-link-for-m5stack-atom-lite)
   - [Table of contents](#table-of-contents)
   - [Hardware](#hardware)
-  - [Initial setup](#initial-setup)
+  - [Setup](#setup)
     - [Pair the radio](#pair-the-radio)
     - [Connect RadioMail](#connect-radiomail)
   - [Usage](#usage)
@@ -26,7 +26,9 @@ KISS-mode initialisation, rig control, deep sleep, and factory reset.
     - [Arduino IDE](#arduino-ide)
   - [Troubleshooting](#troubleshooting)
   - [Repository layout](#repository-layout)
+  - [Air travel with the Tail Bat](#air-travel-with-the-tail-bat)
   - [License and upstream project](#license-and-upstream-project)
+  - [Author](#author)
 
 ## Hardware
 
@@ -53,33 +55,11 @@ draw. M5Stack specifies a 190 mAh rechargeable lithium battery for the Tail Bat.
 > is another battery-powered option that avoids an external power source or
 > USB cable while operating.
 
-> [!WARNING]
-> ### Air travel with the Tail Bat
+## Setup
+> [!TIP] Operation Guide Avalable!
+> Save on your Phone, Tablet, or Computer, Complete [Build and upload](#build-and-upload).
 > 
-> Carry the B.B. Link and Tail Bat in **carry-on baggage**, not checked baggage.
-> Keep the Tail Bat switched off and protect the assembly from damage and
-> accidental activation. If the Tail Bat is detached, insulate its exposed
-> connector or place it in a separate protective pouch to prevent a short
-> circuit. Do not carry a damaged, swollen, or recalled battery.
-> 
-> As of August 2026, the
-> [ICAO Technical Instructions, 2025–2026 Edition, Addendum No. 1](https://www.icao.int/sites/default/files/publications/DocSeries/9284_2025_2026_add_01_en.pdf)
-> require spare lithium batteries and power banks to be carried in the cabin and
-> individually protected against short circuits. The
-> [IATA passenger lithium-battery guidance](https://www.iata.org/contentassets/6fea26dd84d24b26a7a1fd5788561d6e/passengers_travelling_with_lithium_batteries.pdf)
-> also advises carrying battery-powered devices in hand baggage and checking the
-> operating airline's policy, which may be stricter.
-> 
-> M5Stack publishes the Tail Bat capacity in mAh but does not show a Wh rating on
-> its product page. Keep the official Tail Bat specification available when
-> travelling and ask the airline in advance if it requires a visible Wh rating or
-> other battery documentation. Airline staff may decline a battery if its rating
-> cannot be verified.
-> 
-> ![ATOM Lite and Tail Bat before assembly](docs/images/battery.jpg)
-> **3.7V, 900mAh, 3.33Wh**
-
-## Initial setup
+> [Download (PDF)](docs/BB_Link_Atom_Operation_Guide.pdf)
 
 ### Pair the radio
 
@@ -179,6 +159,30 @@ The repository root is the Arduino sketch directory, named `bb-link` to match
 `bb-link.ino`. Its internal C++ sources are kept in the sketch's `src/`
 directory, which Arduino compiles recursively according to the
 [official sketch specification](https://docs.arduino.cc/arduino-cli/sketch-specification/#src-subfolder).
+## Air travel with the Tail Bat
+> [!WARNING]
+> Carry the B.B. Link and Tail Bat in **carry-on baggage**, not checked baggage.
+> Keep the Tail Bat switched off and protect the assembly from damage and
+> accidental activation. If the Tail Bat is detached, insulate its exposed
+> connector or place it in a separate protective pouch to prevent a short
+> circuit. Do not carry a damaged, swollen, or recalled battery.
+> 
+> As of August 2026, the
+> [ICAO Technical Instructions, 2025–2026 Edition, Addendum No. 1](https://www.icao.int/sites/default/files/publications/DocSeries/9284_2025_2026_add_01_en.pdf)
+> require spare lithium batteries and power banks to be carried in the cabin and
+> individually protected against short circuits. The
+> [IATA passenger lithium-battery guidance](https://www.iata.org/contentassets/6fea26dd84d24b26a7a1fd5788561d6e/passengers_travelling_with_lithium_batteries.pdf)
+> also advises carrying battery-powered devices in hand baggage and checking the
+> operating airline's policy, which may be stricter.
+> 
+> M5Stack publishes the Tail Bat capacity in mAh but does not show a Wh rating on
+> its product page. Keep the official Tail Bat specification available when
+> travelling and ask the airline in advance if it requires a visible Wh rating or
+> other battery documentation. Airline staff may decline a battery if its rating
+> cannot be verified.
+> 
+> ![ATOM Lite and Tail Bat before assembly](docs/images/battery.jpg)
+> **3.7V, 900mAh, 3.33Wh**
 
 ## License and upstream project
 
@@ -187,3 +191,8 @@ This project is licensed under GPL-3.0.
 The original B.B. Link project and product documentation were maintained by
 [Island Magic Co.](https://islandmagic.co/bb-link), with the upstream source at
 [islandmagic/bb-link](https://github.com/islandmagic/bb-link) and [fanlessfan/bb-link](https://github.com/fanlessfan/bb-link).
+
+## Author
+- [JM8UTW](https://jm8utw.radio)
+- [mastdon.radio](https://mastodon.radio/@JM8UTW)
+![Made in Goryokaku, QN01jt](docs/images/goryokaku.svg)
