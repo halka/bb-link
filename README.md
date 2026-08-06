@@ -22,9 +22,12 @@ KISS-mode initialisation, rig control, deep sleep, and factory reset.
     - [LED status](#led-status)
     - [Rig control](#rig-control)
     - [Factory reset](#factory-reset)
+    - [Troubleshooting](#troubleshooting)
   - [Build and upload](#build-and-upload)
     - [Arduino IDE](#arduino-ide)
-  - [Troubleshooting](#troubleshooting)
+    - [Tested Environments](#tested-environments)
+      - [Build](#build)
+      - [Device and App](#device-and-app)
   - [Repository layout](#repository-layout)
   - [Air travel with the Tail Bat](#air-travel-with-the-tail-bat)
   - [License and upstream project](#license-and-upstream-project)
@@ -118,6 +121,12 @@ Use **Reset Adapter** in B.B. Link Configurator, or connect a serial monitor at
 115200 baud and send an uppercase `R`. This clears saved configuration and
 Bluetooth pairing information.
 
+### Troubleshooting
+
+If the adapter connects but the radio does not transmit, open
+**Menu > Configuration > Interface > KISS (983)** on the radio and set KISS to
+**Bluetooth**.
+
 ## Build and upload
 
 Firmware is installed locally via USB using the Arduino IDE.
@@ -126,6 +135,17 @@ Firmware is installed locally via USB using the Arduino IDE.
 
 1. Install the latest [Arduino IDE](https://www.arduino.cc/en/software).
 2. [Setup M5Stack Environment](https://docs.m5stack.com/en/arduino/arduino_board)
+
+    > [!TIP]
+    > Add M5Stack's Boards
+    > 
+    > `File`->`Preferences`->`Additional boards manager URLs`
+    > 
+    > Paste this URL
+    > ```text
+    > https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
+    > ```
+
 3. Install these libraries in Library Manager:
 
    | Library | Version |
@@ -139,11 +159,21 @@ Firmware is installed locally via USB using the Arduino IDE.
    [official ATOM Lite upload guide](https://docs.m5stack.com/en/arduino/m5atom/program).
 6. Select the ATOM Lite serial port and click **Upload**.
 
-## Troubleshooting
+### Tested Environments
 
-If the adapter connects but the radio does not transmit, open
-**Menu > Configuration > Interface > KISS (983)** on the radio and set KISS to
-**Bluetooth**.
+The build and execution have been tested in the following environments
+
+#### Build
+* macOS 27 Public Beta (Apple Silicon)
+* Windows 11 Pro 25H2
+* Arduino IDE 2.3.10
+
+#### Device and App
+* Kenwood TH-D75 V1.03 (Japan Model)
+* iOS/iPadOS 27 Public Beta
+  * iPhone 15 Pro
+  * iPad Pro M4
+* RadioMail 1.6.1 *(2) TestFlight*
 
 ## Repository layout
 
@@ -158,6 +188,7 @@ The repository root is the Arduino sketch directory, named `bb-link` to match
 `bb-link.ino`. Its internal C++ sources are kept in the sketch's `src/`
 directory, which Arduino compiles recursively according to the
 [official sketch specification](https://docs.arduino.cc/arduino-cli/sketch-specification/#src-subfolder).
+
 ## Air travel with the Tail Bat
 > [!WARNING]
 > Carry the B.B. Link and Tail Bat in **carry-on baggage**, not checked baggage.
@@ -181,7 +212,10 @@ directory, which Arduino compiles recursively according to the
 > cannot be verified.
 > 
 > ![ATOM Lite and Tail Bat before assembly](docs/images/battery.jpg)
-> **3.7V, 900mAh, 3.33Wh**
+> 
+> My Tail Bat's Battery is printed : **3.7V, 900mAh, 3.33Wh**
+>
+> ***Make Sure your own Tail Bat!!!!!***
 
 ## License and upstream project
 
