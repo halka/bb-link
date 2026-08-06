@@ -136,16 +136,15 @@ Firmware is installed locally via USB using the Arduino IDE.
 1. Install the latest [Arduino IDE](https://www.arduino.cc/en/software).
 2. [Setup M5Stack Environment](https://docs.m5stack.com/en/arduino/arduino_board)
 
-    > [!TIP]
-    > 
-    > Add M5Stack's Boards
-    > 
-    > `File`->`Preferences`->`Additional boards manager URLs`
-    > 
-    > Paste this URL
-    > ```text
-    > https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
-    > ```
+> [!TIP]
+> Add M5Stack's Boards
+> 
+> `File`->`Preferences`->`Additional boards manager URLs`
+> 
+> Paste this URL
+> ```text
+> https://static-cdn.m5stack.com/resource/arduino/package_m5stack_index.json
+> ```
 
 3. Install these libraries in Library Manager:
 
